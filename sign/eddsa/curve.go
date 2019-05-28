@@ -10,6 +10,7 @@ import (
 type curve struct {
 	size        int
 	b           int
+	lgCofactor  uint
 	fixedParams struct{ t, v, w int }
 	order       []uint64
 	paramD      []byte
@@ -124,6 +125,10 @@ func (ecc *curve) fixedMult(P pointR1, S pointR3, scalar []byte) {
 			P.mixAdd(S)
 		}
 	}
+}
+
+func (ecc *curve) reduceModOrder(k []byte) {
+
 }
 
 // absolute returns always a positive value.

@@ -4,8 +4,9 @@ var edwards25519, edwards448 *curve
 
 func init() {
 	edwards25519 = &curve{
-		size: 255,
-		b:    256,
+		size:       255,
+		b:          256,
+		lgCofactor: 3,
 		fixedParams: struct{ t, v, w int }{
 			t: 257,
 			v: 2,
@@ -36,8 +37,9 @@ func init() {
 		},
 	}
 	edwards448 = &curve{
-		size: 448,
-		b:    456,
+		size:       448,
+		b:          456,
+		lgCofactor: 2,
 		fixedParams: struct{ t, v, w int }{
 			t: 449,
 			v: 2,

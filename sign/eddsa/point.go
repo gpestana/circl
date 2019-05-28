@@ -199,6 +199,9 @@ func (P *point255R3) fromR1(Q pointR1) {
 	fp255.Add(&P.dt2, &P.dt2, &P.dt2)
 }
 
+func (P *point448R1) ToBytes(k []byte) {
+}
+
 func (P *point448R1) SetIdentity() {
 	fp448.SetZero(&P.x)
 	fp448.SetOne(&P.y)

@@ -1,3 +1,5 @@
+// +build amd64
+
 package fp448_test
 
 import (
@@ -173,7 +175,7 @@ func TestFp(t *testing.T) {
 			xx := conv.BytesLe2BigInt(x[:])
 			want := xx.ModInverse(xx, p)
 
-			if got.Cmp(want) == 0 {
+			if got.Cmp(want) != 0 {
 				test.ReportError(t, got, want, x)
 			}
 		}

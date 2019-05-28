@@ -1,3 +1,5 @@
+// +build amd64
+
 // Package xcurve provides Diffie-Hellman functions as specified in RFC7748
 //
 // References:

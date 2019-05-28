@@ -1,3 +1,5 @@
+// +build amd64
+
 package xcurve
 
 import "github.com/cloudflare/circl/math/fp25519"

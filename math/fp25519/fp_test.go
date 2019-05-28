@@ -1,3 +1,5 @@
+// +build amd64
+
 package fp25519_test
 
 import (

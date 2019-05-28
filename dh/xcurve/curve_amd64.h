@@ -1,4 +1,3 @@
-
 #define ladderStepLeg          \
     addSub(x2,z2)              \
     addSub(x3,z3)              \

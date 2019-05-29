@@ -1,5 +1,3 @@
-// +build amd64
-
 package fp25519_test
 
 import (
@@ -22,7 +20,7 @@ func TestFp(t *testing.T) {
 		for i := 0; i < numTests; i++ {
 			_, _ = rand.Read(x[:])
 			_, _ = rand.Read(y[:])
-			b := uint(y[0])
+			b := uint(y[0] & 0x1)
 			want := conv.BytesLe2BigInt(x[:])
 			if b != 0 {
 				want = conv.BytesLe2BigInt(y[:])
@@ -32,7 +30,7 @@ func TestFp(t *testing.T) {
 			got := conv.BytesLe2BigInt(x[:])
 
 			if got.Cmp(want) != 0 {
-				test.ReportError(t, got, want, x, y, b)
+				test.ReportError(t, got.Text(16), want.Text(16), x, y, b)
 			}
 		}
 	})
@@ -40,7 +38,7 @@ func TestFp(t *testing.T) {
 		for i := 0; i < numTests; i++ {
 			_, _ = rand.Read(x[:])
 			_, _ = rand.Read(y[:])
-			b := uint(y[0])
+			b := uint(y[0] & 0x1)
 			want0 := conv.BytesLe2BigInt(x[:])
 			want1 := conv.BytesLe2BigInt(y[:])
 			if b != 0 {
@@ -53,7 +51,7 @@ func TestFp(t *testing.T) {
 			got1 := conv.BytesLe2BigInt(y[:])
 
 			if got0.Cmp(want0) != 0 {
-				test.ReportError(t, got0, want0, x, y, b)
+				test.ReportError(t, got0.Text(16), want0.Text(16), x, y, b)
 			}
 			if got1.Cmp(want1) != 0 {
 				test.ReportError(t, got1, want1, x, y, b)

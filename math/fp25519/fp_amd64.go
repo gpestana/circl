@@ -9,11 +9,11 @@ import (
 
 var hasBmi2Adx = cpu.X86.HasBMI2 && cpu.X86.HasADX
 
-// Cmov assigns y to x if n is non-zero 0.
+// Cmov assigns y to x if n is 1.
 //go:noescape
 func Cmov(x, y *Elt, n uint)
 
-// Cswap interchages x and y if n is non-zero 0
+// Cswap interchages x and y if n is 1.
 //go:noescape
 func Cswap(x, y *Elt, n uint)
 

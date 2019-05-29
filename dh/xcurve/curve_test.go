@@ -3,7 +3,6 @@ package xcurve
 import (
 	"crypto/rand"
 	"math/big"
-	mrand "math/rand"
 	"testing"
 
 	"github.com/cloudflare/circl/internal/conv"
@@ -162,7 +161,7 @@ func TestCurve255(t *testing.T) {
 		bigWork := [5]*big.Int{}
 		for i := 0; i < numTests; i++ {
 			for j := range w {
-				_, _ = mrand.Read(w[j][:])
+				_, _ = rand.Read(w[j][:])
 				bigWork[j] = conv.BytesLe2BigInt(w[j][:])
 			}
 			b := uint(w[0][0] & 1)

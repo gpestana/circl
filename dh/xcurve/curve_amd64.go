@@ -3,18 +3,10 @@
 package xcurve
 
 import (
-	fp255 "github.com/cloudflare/circl/math/fp25519"
-	"github.com/cloudflare/circl/math/fp448"
 	"github.com/cloudflare/circl/utils/cpu"
 )
 
 var hasBmi2Adx = cpu.X86.HasBMI2 && cpu.X86.HasADX
-
-//go:noescape
-func mulA24255(z, x *fp255.Elt)
-
-//go:noescape
-func mulA24448(z, x *fp448.Elt)
 
 // ladderStep255 calculates a point addition and doubling as follows:
 // (x2,z2) = 2*(x2,z2) and (x3,z3) = (x2,z2)+(x3,z3) using as a difference (x1,-).

@@ -11,13 +11,14 @@ type curve struct {
 	size       int                        // Size in bytes of prime field elements
 	n          int                        // Size in bits of the prime field
 	h          int                        // Cofactor of the elliptic curve group
-	a24        int                        // (A+2)/4
+	a24        int                        // Precomputed coefficient (A+2)/4
 	table      []byte                     // Precomputed multiples of the generator point
 	pointS     []byte                     // The x-coord of a point of order four
 	pointGS    []byte                     // The x-coord of the generator point minus the point S
-	ladderStep func([]byte, uint)         // Differential addition and doubling
-	double     func([]byte)               // Point doubling
-	difAdd     func([]byte, []byte, uint) // Differential point addition
+	ladderStep func(w []byte, b uint)     // Differential addition and doubling
+	double     func(w []byte)             // Point doubling
+	difAdd     func(w, mu []byte, b uint) // Differential point addition
+	toAffine   func(k, x, z []byte)       // Sets k = x/z mod p
 }
 
 var c255, c448 *curve
@@ -41,6 +42,7 @@ func init() {
 		ladderStep: ladderStep255,
 		double:     double255,
 		difAdd:     difAdd255,
+		toAffine:   toAffine255,
 	}
 
 	c448 = &curve{
@@ -54,15 +56,35 @@ func init() {
 		ladderStep: ladderStep448,
 		double:     double448,
 		difAdd:     difAdd448,
+		toAffine:   toAffine448,
 	}
+}
+
+func toAffine255(k, x, z []byte) {
+	X, Z := &fp255.Elt{}, &fp255.Elt{}
+	copy(X[:], x)
+	copy(Z[:], z)
+	fp255.Inv(Z, Z)
+	fp255.Mul(X, X, Z)
+	fp255.ToBytes(k, X)
+}
+
+func toAffine448(k, x, z []byte) {
+	X, Z := &fp448.Elt{}, &fp448.Elt{}
+	copy(X[:], x)
+	copy(Z[:], z)
+	fp448.Inv(Z, Z)
+	fp448.Mul(X, X, Z)
+	fp448.ToBytes(k, X)
 }
 
 // ladderJoye calculates a fixed-point multiplication with the generator point.
 // The algorithm is the right-to-left Joye's ladder as described
 // in "How to precompute a ladder" in SAC'2017.
 // w = [x1,z1,x2,z2] order must be preserved.
-func (c *curve) ladderJoye(k, w []byte) {
+func (c *curve) ladderJoye(k []byte) {
 	n := c.size
+	w := make([]byte, 4*n)
 	copy(w[0*n:1*n], c.pointS)  // x1 = S
 	w[1*n] = 1                  // z1 = 1
 	copy(w[2*n:3*n], c.pointGS) // x2 = G-S
@@ -80,13 +102,15 @@ func (c *curve) ladderJoye(k, w []byte) {
 	for s := 0; s < c.h; s++ {
 		c.double(w)
 	}
+	c.toAffine(k, w[0*n:1*n], w[1*n:2*n])
 }
 
 // ladderMontgomery calculates a generic scalar point multiplication
 // The algorithm implemented is the left-to-right Montgomery's ladder.
 // w = [x1,x2,z2,x3,z3] order must be preserved.
-func (c *curve) ladderMontgomery(k, xP, w []byte) {
+func (c *curve) ladderMontgomery(k, xP []byte) {
 	n := c.size
+	w := make([]byte, 5*n)
 	copy(w[0*n:1*n], xP) // x1 = xP
 	w[1*n] = 1           // x2 = 1
 	copy(w[3*n:4*n], xP) // x3 = xP
@@ -100,4 +124,5 @@ func (c *curve) ladderMontgomery(k, xP, w []byte) {
 		c.ladderStep(w, move^bit)
 		move = bit
 	}
+	c.toAffine(k, w[1*n:2*n], w[2*n:3*n])
 }

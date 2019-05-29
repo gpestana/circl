@@ -11,31 +11,6 @@ import (
 	"github.com/cloudflare/circl/internal/test"
 )
 
-//
-// func TestMul24(t *testing.T) {
-// 	numTests := 1 << 10
-// 	prime := fp.P()
-// 	p := conv.BytesLe2BigInt(prime[:])
-//
-// 	t.Run("mulA24", func(t *testing.T) {
-// 		var x, z fp255.Elt
-// 		A24 := big.NewInt(a24)
-// 		for i := 0; i < numTests; i++ {
-// 			_, _ = rand.Read(x[:])
-// 			mulA24(&z, &x)
-// 			fp.Modp(&z)
-// 			got := conv.BytesLe2BigInt(z[:])
-//
-// 			xx := conv.BytesLe2BigInt(x[:])
-// 			want := xx.Mul(xx, A24).Mod(xx, p)
-//
-// 			if got.Cmp(want) != 0 {
-// 				test.ReportError(t, got, want, x)
-// 			}
-// 		}
-// 	})
-// }
-
 // Montgomery point doubling in projective (X:Z) coordintates.
 func doubleBig(work [4]*big.Int, A24, p *big.Int) {
 	x1, z1 := work[0], work[1]

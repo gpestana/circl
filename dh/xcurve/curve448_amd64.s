@@ -90,17 +90,6 @@
     MOVQ R13, 40+z; \
     MOVQ R14, 48+z;
 
-#define mulA24Legacy \
-    multiplyA24Leg(0(DI),0(SI))
-#define mulA24Bmi2Adx \
-    multiplyA24Adx(0(DI),0(SI))
-
-// func mulA24448(z, x *fp448.Elt)
-TEXT ·mulA24448(SB),NOSPLIT,$0-16
-    MOVQ z+0(FP), DI
-    MOVQ x+8(FP), SI
-    CHECK_BMI2ADX(LMA24, mulA24Legacy, mulA24Bmi2Adx)
-
 // func ladderStep448(w *[5]fp448.Elt, move uint)
 // ladderStep448 calculates a point addition and doubling as follows:
 // (x2,z2) = 2*(x2,z2) and (x3,z3) = (x2,z2)+(x3,z3) using as a difference (x1,-).

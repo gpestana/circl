@@ -23,6 +23,15 @@ var p = Elt{
 // P returns the prime modulus 2^448-2^224-1.
 func P() Elt { return p }
 
+// ToBytes returns the little-endian byte representation of x.
+func ToBytes(b []byte, x *Elt) {
+	if len(b) != Size {
+		panic("wrong size")
+	}
+	Modp(x)
+	copy(b, x[:])
+}
+
 // Inv calculates z = 1/x mod p
 func Inv(z, x *Elt) {
 	x0, x1, x2 := &Elt{}, &Elt{}, &Elt{}

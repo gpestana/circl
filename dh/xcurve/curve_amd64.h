@@ -88,11 +88,11 @@
     integerSqrLeg(b1,z1)       \
     reduceFromDoubleLeg(x1,b0) \
     reduceFromDoubleLeg(z1,b1) \
-    subtraction(x2,x1,z1)      \
-    multiplyA24Leg(z2,x2)      \
-    additionLeg(z2,z2,z1)      \
+    subtraction(t0,x1,z1)      \
+    multiplyA24Leg(t1,t0)      \
+    additionLeg(t1,t1,z1)      \
     integerMulLeg(b0,x1,z1)    \
-    integerMulLeg(b1,x2,z2)    \
+    integerMulLeg(b1,t0,t1)    \
     reduceFromDoubleLeg(x1,b0) \
     reduceFromDoubleLeg(z1,b1)
 
@@ -102,10 +102,10 @@
     integerSqrAdx(b1,z1)       \
     reduceFromDoubleAdx(x1,b0) \
     reduceFromDoubleAdx(z1,b1) \
-    subtraction(x2,x1,z1)      \
-    multiplyA24Adx(z2,x2)      \
-    additionAdx(z2,z2,z1)      \
+    subtraction(t0,x1,z1)      \
+    multiplyA24Adx(t1,t0)      \
+    additionAdx(t1,t1,z1)      \
     integerMulAdx(b0,x1,z1)    \
-    integerMulAdx(b1,x2,z2)    \
+    integerMulAdx(b1,t0,t1)    \
     reduceFromDoubleAdx(x1,b0) \
     reduceFromDoubleAdx(z1,b1)

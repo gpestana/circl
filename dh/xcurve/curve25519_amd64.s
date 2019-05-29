@@ -53,13 +53,25 @@
     CMOVQCS DX, R12; \
     ADDQ R12, R8;  MOVQ  R8,  0+z;
 
-// func ladderStep255(w *[5]fp.Elt, move uint)
+#define mulA24Legacy \
+    multiplyA24Leg(0(DI),0(SI))
+#define mulA24Bmi2Adx \
+    multiplyA24Adx(0(DI),0(SI))
+
+// func mulA24255(z, x *fp255.Elt)
+TEXT ·mulA24255(SB),NOSPLIT,$0-16
+    MOVQ z+0(FP), DI
+    MOVQ x+8(FP), SI
+    CHECK_BMI2ADX(LMA24, mulA24Legacy, mulA24Bmi2Adx)
+
+
+// func ladderStep255(w *[5]fp255.Elt, b uint)
 // ladderStep255 calculates a point addition and doubling as follows:
 // (x2,z2) = 2*(x2,z2) and (x3,z3) = (x2,z2)+(x3,z3) using as a difference (x1,-).
-//   work  = {x1,x2,z2,x3,z4} are five fp255.Elt of 32 bytes.
+//  work  = {x1,x2,z2,x3,z3} are five fp255.Elt of 32 bytes.
 //  stack = (t0,t1) are two fp.Elt of fp.Size bytes, and
 //          (b0,b1) are two fp.bigElt of 2*fp.Size bytes.
-TEXT ·ladderStep255(SB),NOSPLIT,$192-32
+TEXT ·ladderStep255(SB),NOSPLIT,$192-16
     // Parameters
     #define regWork DI
     #define regMove SI
@@ -73,8 +85,8 @@ TEXT ·ladderStep255(SB),NOSPLIT,$192-32
     #define t1 1*Size(SP)
     #define b0 2*Size(SP)
     #define b1 4*Size(SP)
-    MOVQ work+0(FP), regWork
-    MOVQ move+24(FP), regMove
+    MOVQ w+0(FP), regWork
+    MOVQ b+8(FP), regMove
     CHECK_BMI2ADX(LLADSTEP, ladderStepLeg, ladderStepBmi2Adx)
     #undef regWork
     #undef regMove
@@ -88,32 +100,29 @@ TEXT ·ladderStep255(SB),NOSPLIT,$192-32
     #undef b0
     #undef b1
 
-// func difAdd255(work *[4]fp255.Elt, mu *fp255.Elt, swap uint)
+// func difAdd255(w *[5]fp255.Elt, b uint)
 // diffAdd calculates a differential point addition using a precomputed point.
 // (x1,z1) = (x1,z1)+(mu) using a difference point (x2,z2)
-//    work = {x1,z1,x2,z2} are four fp.Elt of 56 bytes, and
+//    work = {mu,x1,z1,x2,z2} are five fp.Elt of 56 bytes, and
 //   stack = {b0,b1} are two fp.bigElt of 2*fp.Size bytes.
-TEXT ·difAdd255(SB),NOSPLIT,$128-56
+TEXT ·difAdd255(SB),NOSPLIT,$128-16
     // Parameters
     #define regWork DI
-    #define regMu   CX
     #define regSwap SI
-    #define ui 0(regMu)
-    #define x1 0*Size(regWork)
-    #define z1 1*Size(regWork)
-    #define x2 2*Size(regWork)
-    #define z2 3*Size(regWork)
+    #define ui 0*Size(regWork)
+    #define x1 1*Size(regWork)
+    #define z1 2*Size(regWork)
+    #define x2 3*Size(regWork)
+    #define z2 4*Size(regWork)
     // Local variables
     #define b0 0*Size(SP)
     #define b1 2*Size(SP)
-    MOVQ work+0(FP), regWork
-    MOVQ mu+24(FP), regMu
-    MOVQ swap+48(FP), regSwap
+    MOVQ w+0(FP), regWork
+    MOVQ b+8(FP), regSwap
     cswap(x1,x2,regSwap)
     cswap(z1,z2,regSwap)
     CHECK_BMI2ADX(LDIFADD, difAddLeg, difAddBmi2Adx)
     #undef regWork
-    #undef regMu
     #undef regSwap
     #undef ui
     #undef x1
@@ -123,27 +132,24 @@ TEXT ·difAdd255(SB),NOSPLIT,$128-56
     #undef b0
     #undef b1
 
-// func double255(work *[4]fp255.Elt)
-// double calculates a point doubling (x1,z1) = 2*(x1,z1).
-//   work  = {x1,z1,x2,z2} are four fp255.Elt of 32 bytes each one, and
-//   stack = {b0,b1} are two fp.bigElt of 2*fp255.Size bytes.
-// Variables x2,z2 are modified.
-TEXT ·double255(SB),NOSPLIT,$128-24
+// func double255(x, z *fp255.Elt)
+// double255 calculates a point doubling (x1,z1) = 2*(x1,z1).
+// stack = {t0,t1,b0,b1} are two fp255.Elt and two double-sized fp255.Elt
+TEXT ·double255(SB),NOSPLIT,$192-16
     // Parameters
-    #define regWork DI
-    #define x1 0*Size(regWork)
-    #define z1 1*Size(regWork)
-    #define x2 2*Size(regWork)
-    #define z2 3*Size(regWork)
+    #define x1 0(DI)
+    #define z1 0(SI)
     // Local variables
-    #define b0 0*Size(SP)
-    #define b1 2*Size(SP)
-    MOVQ work+0(FP), regWork
+    #define t0 0*Size(SP)
+    #define t1 1*Size(SP)
+    #define b0 2*Size(SP)
+    #define b1 4*Size(SP)
+    MOVQ x+0(FP), DI
+    MOVQ z+8(FP), SI
     CHECK_BMI2ADX(LDOUB,doubleLeg,doubleBmi2Adx)
-    #undef regWork
     #undef x1
     #undef z1
-    #undef x2
-    #undef z2
+    #undef t0
+    #undef t1
     #undef b0
     #undef b1

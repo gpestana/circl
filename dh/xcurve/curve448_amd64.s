@@ -90,13 +90,24 @@
     MOVQ R13, 40+z; \
     MOVQ R14, 48+z;
 
-// func ladderStep448(w *[5]fp448.Elt, move uint)
+#define mulA24Legacy \
+    multiplyA24Leg(0(DI),0(SI))
+#define mulA24Bmi2Adx \
+    multiplyA24Adx(0(DI),0(SI))
+
+// func mulA24448(z, x *fp448.Elt)
+TEXT ·mulA24448(SB),NOSPLIT,$0-16
+    MOVQ z+0(FP), DI
+    MOVQ x+8(FP), SI
+    CHECK_BMI2ADX(LMA24, mulA24Legacy, mulA24Bmi2Adx)
+
+// func ladderStep448(w *[5]fp448.Elt, b uint)
 // ladderStep448 calculates a point addition and doubling as follows:
 // (x2,z2) = 2*(x2,z2) and (x3,z3) = (x2,z2)+(x3,z3) using as a difference (x1,-).
 //    work = {x1,x2,z2,x3,z4} are five fp255.Elt of 56 bytes.
 //   stack = (t0,t1) are two fp.Elt of 56 bytes, and
-//           (b0,b1) are two fp.bigElt of 56 bytes.
-TEXT ·ladderStep448(SB),NOSPLIT,$336-32
+//           (b0,b1) are two fp.bigElt of 2*56 bytes.
+TEXT ·ladderStep448(SB),NOSPLIT,$336-16
     // Parameters
     #define regWork DI
     #define regMove SI
@@ -110,8 +121,8 @@ TEXT ·ladderStep448(SB),NOSPLIT,$336-32
     #define t1 1*Size(SP)
     #define b0 2*Size(SP)
     #define b1 4*Size(SP)
-    MOVQ work+0(FP), regWork
-    MOVQ move+24(FP), regMove
+    MOVQ w+0(FP), regWork
+    MOVQ b+8(FP), regMove
     CHECK_BMI2ADX(LLADSTEP, ladderStepLeg, ladderStepBmi2Adx)
     #undef regWork
     #undef regMove
@@ -125,33 +136,30 @@ TEXT ·ladderStep448(SB),NOSPLIT,$336-32
     #undef b0
     #undef b1
 
-// func difAdd448(work *[4]fp.Elt, mu *fp.Elt, swap uint)
+// func difAdd448(work *[5]fp.Elt, swap uint)
 // diffAdd calculates a differential point addition using a precomputed point.
 // (x1,z1) = (x1,z1)+(mu) using a difference point (x2,z2)
-//    work = {x1,z1,x2,z2} are four fp.Elt of 56 bytes, and
+//    work = {mu,x1,z1,x2,z2} are five fp448.Elt of 56 bytes, and
 //   stack = {b0,b1} are two fp.bigElt of 56 bytes each one.
-// See Equation 7 at https://eprint.iacr.org/2017/264.
-TEXT ·difAdd448(SB),NOSPLIT,$224-56
+// This is Equation 7 at https://eprint.iacr.org/2017/264.
+TEXT ·difAdd448(SB),NOSPLIT,$224-16
     // Parameters
     #define regWork DI
-    #define regMu   CX
     #define regSwap SI
-    #define ui 0(regMu)
-    #define x1 0*Size(regWork)
-    #define z1 1*Size(regWork)
-    #define x2 2*Size(regWork)
-    #define z2 3*Size(regWork)
+    #define ui 0*Size(regWork)
+    #define x1 1*Size(regWork)
+    #define z1 2*Size(regWork)
+    #define x2 3*Size(regWork)
+    #define z2 4*Size(regWork)
     // Local variables
     #define b0 0*Size(SP)
     #define b1 2*Size(SP)
-    MOVQ work+0(FP), regWork
-    MOVQ mu+24(FP), regMu
-    MOVQ swap+48(FP), regSwap
+    MOVQ w+0(FP), regWork
+    MOVQ b+8(FP), regSwap
     cswap(x1,x2,regSwap)
     cswap(z1,z2,regSwap)
     CHECK_BMI2ADX(LDIFADD, difAddLeg, difAddBmi2Adx)
     #undef regWork
-    #undef regMu
     #undef regSwap
     #undef ui
     #undef x1
@@ -161,27 +169,25 @@ TEXT ·difAdd448(SB),NOSPLIT,$224-56
     #undef b0
     #undef b1
 
-// func double448(work *[4]fp448.Elt)
-// double calculates a point doubling (x1,z1) = 2*(x1,z1).
-//   work  = {x1,z1,x2,z2} are four fp255.Elt of 32 bytes each one, and
-//   stack = {b0,b1} are two fp.bigElt of 56 bytes each one.
-// Variables x2,z2 are modified.
-TEXT ·double448(SB),NOSPLIT,$224-24
+
+// func double448(x, z *fp448.Elt)
+// double448 calculates a point doubling (x1,z1) = 2*(x1,z1).
+// stack = {t0,t1,b0,b1} are two fp448.Elt and two double-sized fp448.Elt
+TEXT ·double448(SB),NOSPLIT,$336-16
     // Parameters
-    #define regWork DI
-    #define x1 0*Size(regWork)
-    #define z1 1*Size(regWork)
-    #define x2 2*Size(regWork)
-    #define z2 3*Size(regWork)
+    #define x1 0(DI)
+    #define z1 0(SI)
     // Local variables
-    #define b0 0*Size(SP)
-    #define b1 2*Size(SP)
-    MOVQ work+0(FP), regWork
+    #define t0 0*Size(SP)
+    #define t1 1*Size(SP)
+    #define b0 2*Size(SP)
+    #define b1 4*Size(SP)
+    MOVQ x+0(FP), DI
+    MOVQ z+8(FP), SI
     CHECK_BMI2ADX(LDOUB,doubleLeg,doubleBmi2Adx)
-    #undef regWork
     #undef x1
     #undef z1
-    #undef x2
-    #undef z2
+    #undef t0
+    #undef t1
     #undef b0
     #undef b1

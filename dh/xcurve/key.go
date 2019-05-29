@@ -1,5 +1,3 @@
-// +build amd64
-
 // Package xcurve provides Diffie-Hellman functions as specified in RFC-7748
 //
 // References:
@@ -36,7 +34,7 @@ func (x *X25519) KeyGen(public, secret *Key25519) {
 func (x *X25519) Shared(shared, secret, public *Key25519) {
 	p := *public
 	p[31] &= (1 << (255 % 8)) - 1
-	c255.ladderMontgomery(shared.clamp(secret), p[:])
+	c255.ladderMontgomery(shared.clamp(secret), &p)
 }
 
 // KeyGen obtains a public key given a secret key.
@@ -46,20 +44,20 @@ func (x *X448) KeyGen(public, secret *Key448) {
 
 // Shared calculates Alice's shared key from Alice's secret key and Bob's public key.
 func (x *X448) Shared(shared, secret, public *Key448) {
-	c448.ladderMontgomery(shared.clamp(secret), public[:])
+	c448.ladderMontgomery(shared.clamp(secret), public)
 }
 
 // clamp converts a Key into a valid scalar
-func (k *Key25519) clamp(in *Key25519) []byte {
+func (k *Key25519) clamp(in *Key25519) *Key25519 {
 	*k = *in
 	k[0] &= 248
 	k[31] = (k[31] & 127) | 64
-	return k[:]
+	return k
 }
 
-func (k *Key448) clamp(in *Key448) []byte {
+func (k *Key448) clamp(in *Key448) *Key448 {
 	*k = *in
 	k[0] &= 252
 	k[55] |= 128
-	return k[:]
+	return k
 }

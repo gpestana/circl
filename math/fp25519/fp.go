@@ -3,11 +3,15 @@
 // Package fp25519 provides prime field arithmetic over GF(2^255-19).
 package fp25519
 
+import "github.com/cloudflare/circl/internal/conv"
+
 // Size in bytes of an element.
 const Size = 32
 
 // Elt is a prime field element.
 type Elt [Size]byte
+
+func (e Elt) String() string { return conv.BytesLe2Hex(e[:]) }
 
 // p is the prime modulus 2^255-19
 var p = Elt{
@@ -28,6 +32,10 @@ func ToBytes(b []byte, x *Elt) {
 	Modp(x)
 	copy(b, x[:])
 }
+func IsZero(x *Elt) bool { Modp(x); return *x == Elt{} }
+func SetZero(x *Elt)     { *x = Elt{} }
+func SetOne(x *Elt)      { SetZero(x); x[0] = 1 }
+func Neg(z, x *Elt)      { Sub(z, &p, x) }
 
 // Inv calculates z = 1/x mod p
 func Inv(z, x *Elt) {

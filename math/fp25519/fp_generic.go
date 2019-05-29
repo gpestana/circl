@@ -1,4 +1,4 @@
-// +build !amd64,go1.12
+// +build !amd64
 
 package fp25519
 
@@ -11,32 +11,24 @@ type elt64 [4]uint64
 
 // Cmov assigns y to x if n is 1.
 func Cmov(x, y *Elt, n uint) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	cmov64(x64, y64, n)
+	cmov64((*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)), n)
 }
 
 // Cswap interchages x and y if n is 1.
 func Cswap(x, y *Elt, n uint) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	cswap64(x64, y64, n)
+	cswap64((*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)), n)
 }
 
 // Add calculates z = x+y mod p
 func Add(z, x, y *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	add64(z64, x64, y64)
+	add64((*elt64)(unsafe.Pointer(z)),
+		(*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)))
 }
 
 // Sub calculates z = x-y mod p
 func Sub(z, x, y *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	sub64(z64, x64, y64)
+	sub64((*elt64)(unsafe.Pointer(z)),
+		(*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)))
 }
 
 // AddSub calculates (x,y) = (x+y mod p, x-y mod p)
@@ -51,20 +43,16 @@ func AddSub(x, y *Elt) {
 
 // Mul calculates z = x*y mod p
 func Mul(z, x, y *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	mul64(z64, x64, y64)
+	mul64((*elt64)(unsafe.Pointer(z)),
+		(*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)))
 }
 
 // Sqr calculates z = x^2 mod p
 func Sqr(z, x *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	sqr64(z64, x64)
+	sqr64((*elt64)(unsafe.Pointer(z)), (*elt64)(unsafe.Pointer(x)))
 }
 
-// Modp calculates z is between [0,p-1]
+// Modp ensures that z is between [0,p-1]
 func Modp(z *Elt) { modp64((*elt64)(unsafe.Pointer(z))) }
 
 func cmov64(x, y *elt64, n uint) {
@@ -149,7 +137,7 @@ func mul64(z, x, y *elt64) {
 	h2, l2 := bits.Mul64(x2, yi)
 	h3, l3 := bits.Mul64(x3, yi)
 
-	b0 := l0
+	z[0] = l0
 	a0, c0 := bits.Add64(h0, l1, 0)
 	a1, c1 := bits.Add64(h1, l2, c0)
 	a2, c2 := bits.Add64(h2, l3, c1)
@@ -161,7 +149,7 @@ func mul64(z, x, y *elt64) {
 	h2, l2 = bits.Mul64(x2, yi)
 	h3, l3 = bits.Mul64(x3, yi)
 
-	b1, c0 := bits.Add64(a0, l0, 0)
+	z[1], c0 = bits.Add64(a0, l0, 0)
 	h0, c1 = bits.Add64(h0, l1, c0)
 	h1, c2 = bits.Add64(h1, l2, c1)
 	h2, c3 := bits.Add64(h2, l3, c2)
@@ -178,7 +166,7 @@ func mul64(z, x, y *elt64) {
 	h2, l2 = bits.Mul64(x2, yi)
 	h3, l3 = bits.Mul64(x3, yi)
 
-	b2, c0 := bits.Add64(a0, l0, 0)
+	z[2], c0 = bits.Add64(a0, l0, 0)
 	h0, c1 = bits.Add64(h0, l1, c0)
 	h1, c2 = bits.Add64(h1, l2, c1)
 	h2, c3 = bits.Add64(h2, l3, c2)
@@ -195,7 +183,7 @@ func mul64(z, x, y *elt64) {
 	h2, l2 = bits.Mul64(x2, yi)
 	h3, l3 = bits.Mul64(x3, yi)
 
-	b3, c0 := bits.Add64(a0, l0, 0)
+	z[3], c0 = bits.Add64(a0, l0, 0)
 	h0, c1 = bits.Add64(h0, l1, c0)
 	h1, c2 = bits.Add64(h1, l2, c1)
 	h2, c3 = bits.Add64(h2, l3, c2)
@@ -206,21 +194,72 @@ func mul64(z, x, y *elt64) {
 	b6, c2 := bits.Add64(a3, h2, c1)
 	b7, _ := bits.Add64(0, h3, c2)
 
-	// Reduction
-	h0, l0 = bits.Mul64(b4, 38)
-	h1, l1 = bits.Mul64(b5, 38)
-	h2, l2 = bits.Mul64(b6, 38)
-	h3, l3 = bits.Mul64(b7, 38)
+	red64(z, &elt64{b4, b5, b6, b7})
+}
 
-	l1, c0 = bits.Add64(h0, l1, 0)
-	l2, c1 = bits.Add64(h1, l2, c0)
-	l3, c2 = bits.Add64(h2, l3, c1)
+func sqr64(z, x *elt64) {
+	x0, x1, x2, x3 := x[0], x[1], x[2], x[3]
+	h0, a0 := bits.Mul64(x0, x1)
+	h1, l1 := bits.Mul64(x0, x2)
+	h2, l2 := bits.Mul64(x0, x3)
+	h3, l3 := bits.Mul64(x3, x1)
+	h4, l4 := bits.Mul64(x3, x2)
+	h, l := bits.Mul64(x1, x2)
+
+	a1, c0 := bits.Add64(l1, h0, 0)
+	a2, c1 := bits.Add64(l2, h1, c0)
+	a3, c2 := bits.Add64(l3, h2, c1)
+	a4, c3 := bits.Add64(l4, h3, c2)
+	a5, _ := bits.Add64(h4, 0, c3)
+
+	a2, c0 = bits.Add64(a2, l, 0)
+	a3, c1 = bits.Add64(a3, h, c0)
+	a4, c2 = bits.Add64(a4, 0, c1)
+	a5, c3 = bits.Add64(a5, 0, c2)
+	a6, _ := bits.Add64(0, 0, c3)
+
+	a0, c0 = bits.Add64(a0, a0, 0)
+	a1, c1 = bits.Add64(a1, a1, c0)
+	a2, c2 = bits.Add64(a2, a2, c1)
+	a3, c3 = bits.Add64(a3, a3, c2)
+	a4, c4 := bits.Add64(a4, a4, c3)
+	a5, c5 := bits.Add64(a5, a5, c4)
+	a6, _ = bits.Add64(a6, a6, c5)
+
+	b1, b0 := bits.Mul64(x0, x0)
+	b3, b2 := bits.Mul64(x1, x1)
+	b5, b4 := bits.Mul64(x2, x2)
+	b7, b6 := bits.Mul64(x3, x3)
+
+	b1, c0 = bits.Add64(b1, a0, 0)
+	b2, c1 = bits.Add64(b2, a1, c0)
+	b3, c2 = bits.Add64(b3, a2, c1)
+	b4, c3 = bits.Add64(b4, a3, c2)
+	b5, c4 = bits.Add64(b5, a4, c3)
+	b6, c5 = bits.Add64(b6, a5, c4)
+	b7, _ = bits.Add64(b7, a6, c5)
+	z[0] = b0
+	z[1] = b1
+	z[2] = b2
+	z[3] = b3
+	red64(z, &elt64{b4, b5, b6, b7})
+}
+
+func red64(z, h *elt64) {
+	h0, l0 := bits.Mul64(h[0], 38)
+	h1, l1 := bits.Mul64(h[1], 38)
+	h2, l2 := bits.Mul64(h[2], 38)
+	h3, l3 := bits.Mul64(h[3], 38)
+
+	l1, c0 := bits.Add64(h0, l1, 0)
+	l2, c1 := bits.Add64(h1, l2, c0)
+	l3, c2 := bits.Add64(h2, l3, c1)
 	l4, _ := bits.Add64(h3, 0, c2)
 
-	l0, c0 = bits.Add64(l0, b0, 0)
-	l1, c1 = bits.Add64(l1, b1, c0)
-	l2, c2 = bits.Add64(l2, b2, c1)
-	l3, c3 = bits.Add64(l3, b3, c2)
+	l0, c0 = bits.Add64(l0, z[0], 0)
+	l1, c1 = bits.Add64(l1, z[1], c0)
+	l2, c2 = bits.Add64(l2, z[2], c1)
+	l3, c3 := bits.Add64(l3, z[3], c2)
 	l4, _ = bits.Add64(l4, 0, c3)
 
 	_, l4 = bits.Mul64(l4, 38)
@@ -229,88 +268,4 @@ func mul64(z, x, y *elt64) {
 	z[2], c2 = bits.Add64(l2, 0, c1)
 	z[3], c3 = bits.Add64(l3, 0, c2)
 	z[0], _ = bits.Add64(l0, (-c3)&38, 0)
-}
-
-func sqr64(z, x *elt64) { Sqrn(z, x, 1) }
-
-// Sqrn calculates z = x^(2^n) mod p
-func Sqrn(z, x *elt64, n uint) {
-	z0 := x[0]
-	z1 := x[1]
-	z2 := x[2]
-	z3 := x[3]
-	for {
-		if n == 0 {
-			z[0] = z0
-			z[1] = z1
-			z[2] = z2
-			z[3] = z3
-			return
-		}
-		n--
-
-		h0, a0 := bits.Mul64(z0, z1)
-		h1, l1 := bits.Mul64(z0, z2)
-		h2, l2 := bits.Mul64(z0, z3)
-		h3, l3 := bits.Mul64(z3, z1)
-		h4, l4 := bits.Mul64(z3, z2)
-		h, l := bits.Mul64(z1, z2)
-
-		a1, c0 := bits.Add64(l1, h0, 0)
-		a2, c1 := bits.Add64(l2, h1, c0)
-		a3, c2 := bits.Add64(l3, h2, c1)
-		a4, c3 := bits.Add64(l4, h3, c2)
-		a5, _ := bits.Add64(h4, 0, c3)
-
-		a2, c0 = bits.Add64(a2, l, 0)
-		a3, c1 = bits.Add64(a3, h, c0)
-		a4, c2 = bits.Add64(a4, 0, c1)
-		a5, c3 = bits.Add64(a5, 0, c2)
-		a6, _ := bits.Add64(0, 0, c3)
-
-		a0, c0 = bits.Add64(a0, a0, 0)
-		a1, c1 = bits.Add64(a1, a1, c0)
-		a2, c2 = bits.Add64(a2, a2, c1)
-		a3, c3 = bits.Add64(a3, a3, c2)
-		a4, c4 := bits.Add64(a4, a4, c3)
-		a5, c5 := bits.Add64(a5, a5, c4)
-		a6, _ = bits.Add64(a6, a6, c5)
-
-		b1, b0 := bits.Mul64(z0, z0)
-		b3, b2 := bits.Mul64(z1, z1)
-		b5, b4 := bits.Mul64(z2, z2)
-		b7, b6 := bits.Mul64(z3, z3)
-
-		b1, c0 = bits.Add64(b1, a0, 0)
-		b2, c1 = bits.Add64(b2, a1, c0)
-		b3, c2 = bits.Add64(b3, a2, c1)
-		b4, c3 = bits.Add64(b4, a3, c2)
-		b5, c4 = bits.Add64(b5, a4, c3)
-		b6, c5 = bits.Add64(b6, a5, c4)
-		b7, _ = bits.Add64(b7, a6, c5)
-
-		// Reduction
-		h0, l0 := bits.Mul64(b4, 38)
-		h1, l1 = bits.Mul64(b5, 38)
-		h2, l2 = bits.Mul64(b6, 38)
-		h3, l3 = bits.Mul64(b7, 38)
-
-		l1, c0 = bits.Add64(h0, l1, 0)
-		l2, c1 = bits.Add64(h1, l2, c0)
-		l3, c2 = bits.Add64(h2, l3, c1)
-		l4, _ = bits.Add64(h3, 0, c2)
-
-		l0, c0 = bits.Add64(l0, b0, 0)
-		l1, c1 = bits.Add64(l1, b1, c0)
-		l2, c2 = bits.Add64(l2, b2, c1)
-		l3, c3 = bits.Add64(l3, b3, c2)
-		l4, _ = bits.Add64(l4, 0, c3)
-
-		_, l4 = bits.Mul64(l4, 38)
-		z0, c0 = bits.Add64(l0, l4, 0)
-		z1, c1 = bits.Add64(l1, 0, c0)
-		z2, c2 = bits.Add64(l2, 0, c1)
-		z3, c3 = bits.Add64(l3, 0, c2)
-		z0, _ = bits.Add64(z0, (-c3)&38, 0)
-	}
 }

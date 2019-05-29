@@ -1,6 +1,5 @@
 // +build amd64
 
-// Package fp448 provides prime field arithmetic over GF(2^448-2^224-1).
 package fp448
 
 import (

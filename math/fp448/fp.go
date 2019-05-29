@@ -38,6 +38,9 @@ func SetZero(x *Elt)     { *x = Elt{} }
 func SetOne(x *Elt)      { SetZero(x); x[0] = 1 }
 func Neg(z, x *Elt)      { Sub(z, &p, x) }
 
+// Modp ensures that z is between [0,p-1]
+func Modp(z *Elt) { Sub(z, z, &p) }
+
 // Inv calculates z = 1/x mod p
 func Inv(z, x *Elt) {
 	x0, x1, x2 := &Elt{}, &Elt{}, &Elt{}
@@ -92,6 +95,3 @@ func Inv(z, x *Elt) {
 	Sqr(x2, x2)
 	Mul(z, x2, x)
 }
-
-// Modp calculates z is between [0,p-1]
-func Modp(z *Elt) { Sub(z, z, &p) }

@@ -1,4 +1,4 @@
-// +build !amd64,go1.12
+// +build !amd64
 
 package fp448
 
@@ -11,32 +11,24 @@ type elt64 [7]uint64
 
 // Cmov assigns y to x if n is 1.
 func Cmov(x, y *Elt, n uint) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	cmov64(x64, y64, n)
+	cmov64((*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)), n)
 }
 
 // Cswap interchages x and y if n is 1.
 func Cswap(x, y *Elt, n uint) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	cswap64(x64, y64, n)
+	cswap64((*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)), n)
 }
 
 // Add calculates z = x+y mod p
 func Add(z, x, y *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	add64(z64, x64, y64)
+	add64((*elt64)(unsafe.Pointer(z)),
+		(*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)))
 }
 
 // Sub calculates z = x-y mod p
 func Sub(z, x, y *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	sub64(z64, x64, y64)
+	sub64((*elt64)(unsafe.Pointer(z)),
+		(*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)))
 }
 
 // AddSub calculates (x,y) = (x+y mod p, x-y mod p)
@@ -51,17 +43,13 @@ func AddSub(x, y *Elt) {
 
 // Mul calculates z = x*y mod p
 func Mul(z, x, y *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	y64 := (*elt64)(unsafe.Pointer(y))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	mul64(z64, x64, y64)
+	mul64((*elt64)(unsafe.Pointer(z)),
+		(*elt64)(unsafe.Pointer(x)), (*elt64)(unsafe.Pointer(y)))
 }
 
 // Sqr calculates z = x^2 mod p
 func Sqr(z, x *Elt) {
-	x64 := (*elt64)(unsafe.Pointer(x))
-	z64 := (*elt64)(unsafe.Pointer(z))
-	sqr64(z64, x64)
+	sqr64((*elt64)(unsafe.Pointer(z)), (*elt64)(unsafe.Pointer(x)))
 }
 
 func cmov64(x, y *elt64, n uint) {

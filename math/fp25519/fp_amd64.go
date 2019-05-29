@@ -1,6 +1,5 @@
 // +build amd64
 
-// Package fp25519 provides prime field arithmetic over GF(2^255-19).
 package fp25519
 
 import (
@@ -37,6 +36,6 @@ func Mul(z, x, y *Elt)
 //go:noescape
 func Sqr(z, x *Elt)
 
-// Modp calculates z is between [0,p-1]
+// Modp ensures that z is between [0,p-1].
 //go:noescape
 func Modp(z *Elt)

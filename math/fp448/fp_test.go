@@ -1,5 +1,3 @@
-// +build amd64
-
 package fp448_test
 
 import (
@@ -22,7 +20,7 @@ func TestFp(t *testing.T) {
 		for i := 0; i < numTests; i++ {
 			_, _ = rand.Read(x[:])
 			_, _ = rand.Read(y[:])
-			b := uint(y[0])
+			b := uint(y[0] & 0x1)
 			want := conv.BytesLe2BigInt(x[:])
 			if b != 0 {
 				want = conv.BytesLe2BigInt(y[:])
@@ -40,7 +38,7 @@ func TestFp(t *testing.T) {
 		for i := 0; i < numTests; i++ {
 			_, _ = rand.Read(x[:])
 			_, _ = rand.Read(y[:])
-			b := uint(y[0])
+			b := uint(y[0] & 0x1)
 			want0 := conv.BytesLe2BigInt(x[:])
 			want1 := conv.BytesLe2BigInt(y[:])
 			if b != 0 {

@@ -1,6 +1,6 @@
 // +build amd64
 
-// Package xcurve provides Diffie-Hellman functions as specified in RFC7748
+// Package xcurve provides Diffie-Hellman functions as specified in RFC-7748
 //
 // References:
 //  - Curve25519 https://cr.yp.to/ecdh.html
@@ -14,18 +14,25 @@ import (
 )
 
 const (
-	SizeX25519 = 32 // Byte length of a X25519 key.
-	SizeX448   = 56 // Byte length of a X448 key.
+	// SizeX25519 is the length in bytes of a X25519 key.
+	SizeX25519 = 32
+	// SizeX448 is the length in bytes of a X448 key.
+	SizeX448 = 56
 )
 
+// Key25519 represents a X25519 key.
 type Key25519 [SizeX25519]byte
+
+// Key448 represents a X448 key.
 type Key448 [SizeX448]byte
 
-type X25519 struct{} // Implements X25519 Diffie-Hellman
-type X448 struct{}   // Implements X448 Diffie-Hellman
+// X25519 instantiates a receiver that performs X25519 Diffie-Hellman operations.
+type X25519 struct{}
 
-func (x *X25519) Generator() Key25519 { return Key25519{c255.xCoord} }
-func (x *X448) Generator() Key448     { return Key448{c448.xCoord} }
+// X448 instantiates a receiver that performs X448 Diffie-Hellman operations.
+type X448 struct{}
+
+// KeyGen obtains a public key given a secret key.
 func (x *X25519) KeyGen(public, secret *Key25519) {
 	const n = SizeX25519
 	var w [4 * n]byte
@@ -33,12 +40,29 @@ func (x *X25519) KeyGen(public, secret *Key25519) {
 	x.toAffine(public, w[0*n:1*n], w[1*n:2*n])
 }
 
+// Shared calculates Alice's shared key from Alice's secret key and Bob's public key.
 func (x *X25519) Shared(shared, secret, public *Key25519) {
 	const n = SizeX25519
 	p := *public
 	p[n-1] &= (1 << (255 % 8)) - 1
 	var w [5 * n]byte
 	c255.ladderMontgomery(shared.clamp(secret), p[:], w[:])
+	x.toAffine(shared, w[1*n:2*n], w[2*n:3*n])
+}
+
+// KeyGen obtains a public key given a secret key.
+func (x *X448) KeyGen(public, secret *Key448) {
+	const n = SizeX448
+	var w [4 * n]byte
+	c448.ladderJoye(public.clamp(secret), w[:])
+	x.toAffine(public, w[0*n:1*n], w[1*n:2*n])
+}
+
+// Shared calculates Alice's shared key from Alice's secret key and Bob's public key.
+func (x *X448) Shared(shared, secret, public *Key448) {
+	const n = SizeX448
+	var w [5 * n]byte
+	c448.ladderMontgomery(shared.clamp(secret), public[:], w[:])
 	x.toAffine(shared, w[1*n:2*n], w[2*n:3*n])
 }
 
@@ -50,20 +74,6 @@ func (x *X25519) toAffine(k *Key25519, x1, z1 []byte) {
 	fp255.Mul(X, X, Z)
 	fp255.Modp(X)
 	copy(k[:], X[:])
-}
-
-func (x *X448) KeyGen(public, secret *Key448) {
-	const n = SizeX448
-	var w [4 * n]byte
-	c448.ladderJoye(public.clamp(secret), w[:])
-	x.toAffine(public, w[0*n:1*n], w[1*n:2*n])
-}
-
-func (x *X448) Shared(shared, secret, public *Key448) {
-	const n = SizeX448
-	var w [5 * n]byte
-	c448.ladderMontgomery(shared.clamp(secret), public[:], w[:])
-	x.toAffine(shared, w[1*n:2*n], w[2*n:3*n])
 }
 
 func (x *X448) toAffine(k *Key448, x1, z1 []byte) {

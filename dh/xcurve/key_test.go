@@ -116,7 +116,7 @@ func times25519(t *testing.T, vec []katTimes) {
 			t.Log("Skipped one long test, add -long flag to run longer tests")
 			continue
 		}
-		u := dh.Generator()
+		u := Key25519{9}
 		k := u
 		r := u
 		for i := uint32(0); i < v.Times; i++ {
@@ -141,7 +141,7 @@ func times448(t *testing.T, vec []katTimes) {
 			t.Log("Skipped one long test, add -long flag to run longer tests")
 			continue
 		}
-		u := dh.Generator()
+		u := Key448{5}
 		k := u
 		r := u
 		for i := uint32(0); i < v.Times; i++ {
@@ -163,7 +163,7 @@ func TestBase(t *testing.T) {
 	t.Run("25519", func(t *testing.T) {
 		var dh X25519
 		var got, want, secret Key25519
-		gen := dh.Generator()
+		gen := Key25519{9}
 		for i := 0; i < testTimes; i++ {
 			_, _ = io.ReadFull(rand.Reader, secret[:])
 			dh.KeyGen(&got, &secret)
@@ -177,7 +177,7 @@ func TestBase(t *testing.T) {
 	t.Run("448", func(t *testing.T) {
 		var dh X448
 		var got, want, secret Key448
-		gen := dh.Generator()
+		gen := Key448{5}
 		for i := 0; i < testTimes; i++ {
 			_, _ = io.ReadFull(rand.Reader, secret[:])
 			dh.KeyGen(&got, &secret)
@@ -276,11 +276,38 @@ func Example_x25519() {
 	// Generating Alice's secret and public keys
 	_, _ = io.ReadFull(rand.Reader, AliceSecret[:])
 	dh.KeyGen(&AlicePublic, &AliceSecret)
+
 	// Generating Bob's secret and public keys
 	_, _ = io.ReadFull(rand.Reader, BobSecret[:])
 	dh.KeyGen(&BobPublic, &BobSecret)
+
 	// Deriving Alice's shared key
 	dh.Shared(&AliceShared, &AliceSecret, &BobPublic)
+
+	// Deriving Bob's shared key
+	dh.Shared(&BobShared, &BobSecret, &AlicePublic)
+
+	fmt.Println(AliceShared == BobShared)
+	// Output: true
+}
+
+func Example_x448() {
+	var dh X448
+	var AliceSecret, BobSecret,
+		AlicePublic, BobPublic,
+		AliceShared, BobShared Key448
+
+	// Generating Alice's secret and public keys
+	_, _ = io.ReadFull(rand.Reader, AliceSecret[:])
+	dh.KeyGen(&AlicePublic, &AliceSecret)
+
+	// Generating Bob's secret and public keys
+	_, _ = io.ReadFull(rand.Reader, BobSecret[:])
+	dh.KeyGen(&BobPublic, &BobSecret)
+
+	// Deriving Alice's shared key
+	dh.Shared(&AliceShared, &AliceSecret, &BobPublic)
+
 	// Deriving Bob's shared key
 	dh.Shared(&BobShared, &BobSecret, &AlicePublic)
 

@@ -108,19 +108,24 @@ func ladderStepBig(work [5]*big.Int, A24, p *big.Int, b uint) {
 }
 
 func TestCurve255(t *testing.T) {
-	testCurve(t, c255)
+	p := big.NewInt(1)
+	p.Lsh(p, 255).Sub(p, big.NewInt(19))
+	testCurve(t, c255, p)
 }
 
 func TestCurve448(t *testing.T) {
-	testCurve(t, c448)
+	p := big.NewInt(1)
+	p.Lsh(p, 224)
+	p.Sub(p, new(big.Int).SetInt64(1))
+	p.Lsh(p, 224)
+	p.Sub(p, new(big.Int).SetInt64(1))
+	testCurve(t, c448, p)
 }
 
-func testCurve(t *testing.T, c *curve) {
+func testCurve(t *testing.T, c *curve, p *big.Int) {
 	numTests := 1 << 9
-
 	n := c.size
 	A24 := big.NewInt(int64(c.a24))
-	p := conv.BytesLe2BigInt(c.modulus)
 	mu := make([]byte, 1*c.size)
 	work := make([]byte, 4*c.size)
 	workLadder := make([]byte, 5*c.size)

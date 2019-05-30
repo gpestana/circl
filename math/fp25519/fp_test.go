@@ -294,4 +294,9 @@ func BenchmarkFp(b *testing.B) {
 			fp.Inv(&x, &y)
 		}
 	})
+	b.Run("InvSqrt", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			fp.InvSqrt(&z, &x, &y)
+		}
+	})
 }

@@ -41,6 +41,11 @@ func Neg(z, x *Elt)      { Sub(z, &p, x) }
 // Modp ensures that z is between [0,p-1]
 func Modp(z *Elt) { Sub(z, z, &p) }
 
+// InvSqrt calculates z = sqrt(x/y)
+func InvSqrt(z, x, y *Elt) {
+
+}
+
 // Inv calculates z = 1/x mod p
 func Inv(z, x *Elt) {
 	x0, x1, x2 := &Elt{}, &Elt{}, &Elt{}

@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	// "fmt"
 	"math/bits"
+
+	"github.com/cloudflare/circl/internal/conv"
 )
 
 type curve struct {
@@ -127,8 +129,26 @@ func (ecc *curve) fixedMult(P pointR1, S pointR3, scalar []byte) {
 	}
 }
 
-func (ecc *curve) reduceModOrder(k []byte) {
+func (ecc *curve) doubleMult(sBhA, A pointR1, s, h []byte) {
 
+}
+
+func (ecc *curve) reduceModOrder(k []byte) {
+	bigK := conv.BytesLe2BigInt(k)
+	orderBig := conv.Uint64Le2BigInt(ecc.order[:])
+	bigK.Mod(bigK, orderBig)
+	conv.BigInt2BytesLe(k, bigK)
+}
+
+// calculateS performs s= r+k*a mod L
+func (ecc *curve) calculateS(s, r, k, a []byte) {
+	R := conv.BytesLe2BigInt(r)
+	K := conv.BytesLe2BigInt(k)
+	A := conv.BytesLe2BigInt(a)
+	order := conv.Uint64Le2BigInt(ecc.order[:])
+	S := K.Mul(K, A).Add(K, R)
+	S.Mod(S, order)
+	conv.BigInt2BytesLe(s, S)
 }
 
 // absolute returns always a positive value.

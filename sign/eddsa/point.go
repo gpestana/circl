@@ -54,6 +54,33 @@ func (P *point255R1) ToBytes(k []byte) {
 	k[31] = k[31] | (b << 7)
 }
 
+func (P *point255R1) FromBytes(k []byte) bool {
+	if len(k) != 32 {
+		panic("wrong size")
+	}
+	signX := k[31] >> 7
+	copy(P.y[:], k)
+	P.y[31] &= 0x7F
+
+	d := &fp255.Elt{}
+	copy(d[:], edwards25519.paramD)
+
+	one, u, v := &fp255.Elt{}, &fp255.Elt{}, &fp255.Elt{}
+	fp255.SetOne(one)
+	fp255.Sqr(u, &P.y)        // u = y^2
+	fp255.Mul(v, u, d)        // v = dy^2
+	fp255.Sub(u, u, one)      // u = y^2-1
+	fp255.Add(v, v, one)      // v = dy^2+1
+	fp255.InvSqrt(&P.x, u, v) // x = sqrt(u/v)
+	fp255.Modp(&P.x)          // x = x mod p
+	if signX == (P.x[0] & 1) {
+		fp255.Neg(&P.x, &P.x)
+	}
+	P.ta = P.x
+	P.tb = P.y
+	fp255.SetOne(&P.z)
+	return true
+}
 func (P *point255R1) SetIdentity() {
 	fp255.SetZero(&P.x)
 	fp255.SetOne(&P.y)

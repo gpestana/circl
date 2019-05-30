@@ -4,21 +4,22 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/cloudflare/circl/internal/conv"
+	// "github.com/cloudflare/circl/internal/conv"
 	"github.com/cloudflare/circl/internal/test"
 )
 
-func TestDevel(t *testing.T) {
-	var P pointR1 = &point255R1{}
-	var Q pointR3 = &point255R3{}
-	var k [32]byte
-	_, _ = rand.Read(k[:])
-
-	t.Logf("k: %v\n", conv.BytesLe2Hex(k[:]))
-	edwards25519.fixedMult(P, Q, k[:])
-	P.toAffine()
-	t.Logf("P: %v\n", P)
-}
+//
+// func TestDevel(t *testing.T) {
+// 	var P pointR1 = &point255R1{}
+// 	var Q pointR3 = &point255R3{}
+// 	var k [32]byte
+// 	_, _ = rand.Read(k[:])
+//
+// 	t.Logf("k: %v\n", conv.BytesLe2Hex(k[:]))
+// 	edwards25519.fixedMult(P, Q, k[:])
+// 	P.toAffine()
+// 	t.Logf("P: %v\n", P)
+// }
 
 func randomPoint(e *curve, P pointR1, Q pointR3) {
 	k := make([]byte, e.size)
@@ -64,12 +65,13 @@ func testPoint(t *testing.T, P, Q pointR1, R pointR3, c *curve) {
 }
 
 func BenchmarkPoint(b *testing.B) {
-	var P pointR1
-	var Q pointR3
+	var P, Q pointR1
+	var R pointR3
 	b.Run("ed25519", func(b *testing.B) {
 		P = &point255R1{}
-		Q = &point255R3{}
-		benchmarkPoint(b, P, Q, edwards25519)
+		Q = &point255R1{}
+		R = &point255R3{}
+		benchmarkPoint(b, P, Q, R, edwards25519)
 	})
 	// b.Run("ed448", func(b *testing.B) {
 	// 	P = &point448R1{}
@@ -79,8 +81,9 @@ func BenchmarkPoint(b *testing.B) {
 	// })
 }
 
-func benchmarkPoint(b *testing.B, P pointR1, Q pointR3, c *curve) {
+func benchmarkPoint(b *testing.B, P, Q pointR1, R pointR3, c *curve) {
 	k := make([]byte, (c.size+7)/8)
+	l := make([]byte, (c.size+7)/8)
 	_, _ = rand.Read(k)
 	P.SetGenerator()
 	b.Run("toAffine", func(b *testing.B) {
@@ -95,12 +98,17 @@ func benchmarkPoint(b *testing.B, P pointR1, Q pointR3, c *curve) {
 	})
 	b.Run("mixadd", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			P.mixAdd(Q)
+			P.mixAdd(R)
 		}
 	})
-	b.Run("mult", func(b *testing.B) {
+	b.Run("fixedMult", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			c.fixedMult(P, Q, k)
+			c.fixedMult(P, R, k)
+		}
+	})
+	b.Run("doubleMult", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			c.doubleMult(P, Q, k, l)
 		}
 	})
 }

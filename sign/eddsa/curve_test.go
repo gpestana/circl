@@ -18,8 +18,7 @@ func testScalar(t *testing.T, c *curve) {
 	testTimes := 1 << 12
 	x := make([]uint64, len(c.order)+1)
 	xx := make([]uint64, len(c.order)+1)
-	max := big.NewInt(1)
-	max.Lsh(max, uint(c.size))
+	max := conv.Uint64Le2BigInt(c.order)
 	two64 := big.NewInt(1)
 	two64.Lsh(two64, 64)
 	bigOrder := conv.Uint64Le2BigInt(c.order[:])

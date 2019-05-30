@@ -3,22 +3,83 @@ package eddsa
 import (
 	"crypto/subtle"
 	"encoding/binary"
-	"math/big"
+	// "fmt"
 	"math/bits"
 
 	"github.com/cloudflare/circl/internal/conv"
 	"github.com/cloudflare/circl/math"
 )
 
+type pointR2 interface {
+	neg() pointR2
+	fromR1(pointR1)
+}
+
+type pointR3 interface {
+	neg() pointR3
+	cneg(int)
+	cmov(pointR3, int)
+	fromR1(pointR1)
+}
+
+type pointR1 interface {
+	neg()
+	copy() pointR1
+	SetIdentity()
+	SetGenerator()
+	isEqual(pointR1) bool
+	toAffine()
+	double()
+	mixAdd(pointR3)
+	add(pointR2)
+	oddMultiples([]pointR2)
+}
+
+const (
+	idEd25519 = iota
+	idEd448
+)
+
 type curve struct {
-	size        int
+	id          int
 	b           int
 	lgCofactor  uint
 	fixedParams struct{ t, v, w int }
 	order       []uint64
 	paramD      []byte
 	genX, genY  []byte
-	Table       *[2][_2w1]pointR3
+	TabSign     *[2][_2w1]pointR3
+	TabVerif    *[numPointsVerif]pointR3
+}
+
+func (ecc *curve) newPointR1() pointR1 {
+	if ecc.id == idEd25519 {
+		return &point255R1{}
+	}
+	if ecc.id == idEd448 {
+		return &point448R1{}
+	}
+	return nil
+}
+
+func (ecc *curve) newPointR2() pointR2 {
+	if ecc.id == idEd25519 {
+		return &point255R2{}
+	}
+	if ecc.id == idEd448 {
+		return &point448R2{}
+	}
+	return nil
+}
+
+func (ecc *curve) newPointR3() pointR3 {
+	if ecc.id == idEd25519 {
+		return &point255R3{}
+	}
+	if ecc.id == idEd448 {
+		return &point448R3{}
+	}
+	return nil
 }
 
 // condAddOrderN updates x = x+order if x is even, otherwise x remains unchanged
@@ -99,7 +160,7 @@ func (ecc *curve) mLSBRecoding(L []int8, k []byte) {
 	}
 }
 
-func (ecc *curve) fixedMult(P pointR1, S pointR3, scalar []byte) {
+func (ecc *curve) fixedMult(P pointR1, scalar []byte) {
 	fx_t := ecc.fixedParams.t
 	fx_v := ecc.fixedParams.v
 	fx_w := ecc.fixedParams.w
@@ -111,6 +172,7 @@ func (ecc *curve) fixedMult(P pointR1, S pointR3, scalar []byte) {
 	L := make([]int8, l+1)
 	ecc.mLSBRecoding(L[:], scalar)
 	P.SetIdentity()
+	S := ecc.newPointR3()
 	for ii := e - 1; ii >= 0; ii-- {
 		P.double()
 		for j := 0; j < fx_v; j++ {
@@ -120,7 +182,7 @@ func (ecc *curve) fixedMult(P pointR1, S pointR3, scalar []byte) {
 			}
 			idx := absolute(int32(dig))
 			sig := L[d-j*e+ii-e]
-			Tabj := &ecc.Table[fx_v-j-1]
+			Tabj := &ecc.TabSign[fx_v-j-1]
 			for k := 0; k < fx_2w1; k++ {
 				S.cmov(Tabj[k], subtle.ConstantTimeEq(int32(k), int32(idx)))
 			}
@@ -130,43 +192,51 @@ func (ecc *curve) fixedMult(P pointR1, S pointR3, scalar []byte) {
 	}
 }
 
-// P = sBhA
-func (ecc *curve) doubleMult(P, A pointR2, m, n []byte) {
-	const nOmega = uint(5)
-	const baseOmega = uint(7)
-	var k big.Int
-	k.SetBytes(m)
-	nafM := math.OmegaNAF(&k, baseOmega)
-	k.SetBytes(n)
-	nafN := math.OmegaNAF(&k, nOmega)
+// doubleMult calculates P = mP+nG
+func (ecc *curve) doubleMult(P pointR1, m, n []byte) {
+	nafFix := math.OmegaNAF(conv.BytesLe2BigInt(m), omegaFix)
+	nafVar := math.OmegaNAF(conv.BytesLe2BigInt(n), omegaVar)
 
-	if len(nafM) > len(nafN) {
-		nafN = append(nafN, make([]int32, len(nafM)-len(nafN))...)
-	} else if len(nafM) < len(nafN) {
-		nafM = append(nafM, make([]int32, len(nafN)-len(nafM))...)
+	if len(nafFix) > len(nafVar) {
+		nafVar = append(nafVar, make([]int32, len(nafFix)-len(nafVar))...)
+	} else if len(nafFix) < len(nafVar) {
+		nafFix = append(nafFix, make([]int32, len(nafVar)-len(nafFix))...)
 	}
-	var TabA [1 << (nOmega - 1)]pointR2
-	A.oddMultiples(TabA[:])
+	// fmt.Printf("nafVar[")
+	// for i := range nafVar {
+	// 	fmt.Printf("%v, ", nafVar[i])
+	// }
+	// fmt.Printf("]\n")
+	// fmt.Printf("nafFix[")
+	// for i := range nafFix {
+	// 	fmt.Printf("%v, ", nafFix[i])
+	// }
+	// fmt.Printf("]\n")
+
+	var TabP [1 << (omegaVar - 2)]pointR2
+	// fmt.Println("doubleMult")
+	P.oddMultiples(TabP[:])
+	// P is now used as an output value
 	P.SetIdentity()
-	for i := len(nafN) - 1; i >= 0; i-- {
+	for i := len(nafFix) - 1; i >= 0; i-- {
+		// fmt.Printf("i:%v\n", i)
 		P.double()
 		// Generator point
-		/*	if nafM[i] != 0 {
-			idxM := absolute(nafM[i]) >> 1
-			aR = baseOddMultiples[idxM]
-			if nafM[i] < 0 {
-				aR.neg()
+		if nafFix[i] != 0 {
+			idxM := absolute(nafFix[i]) >> 1
+			R := ecc.TabVerif[idxM]
+			if nafFix[i] < 0 {
+				R = R.neg()
 			}
-			P.mixadd(&P, &aR)
-		}*/
-		// Input point
-		if nafN[i] != 0 {
-			idxN := absolute(nafN[i]) >> 1
-			Q := TabA[idxN]
-			if nafN[i] < 0 {
+			P.mixAdd(R)
+		}
+		// Variable input point
+		if nafVar[i] != 0 {
+			idxN := absolute(nafVar[i]) >> 1
+			Q := TabP[idxN]
+			if nafVar[i] < 0 {
 				Q = Q.neg()
 			}
-			P.add(Q)
 			P.add(Q)
 		}
 	}

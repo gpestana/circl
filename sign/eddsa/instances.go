@@ -4,7 +4,7 @@ var edwards25519, edwards448 *curve
 
 func init() {
 	edwards25519 = &curve{
-		size:       255,
+		id:         idEd25519,
 		b:          256,
 		lgCofactor: 3,
 		fixedParams: struct{ t, v, w int }{
@@ -12,7 +12,8 @@ func init() {
 			v: 2,
 			w: 3,
 		},
-		Table: &tableGenerator255,
+		TabSign:  &tabSign255,
+		TabVerif: &tabVerif255,
 		order: []uint64{
 			0x5812631a5cf5d3ed, 0x14def9dea2f79cd6,
 			0x0000000000000000, 0x1000000000000000,
@@ -37,7 +38,7 @@ func init() {
 		},
 	}
 	edwards448 = &curve{
-		size:       448,
+		id:         idEd448,
 		b:          456,
 		lgCofactor: 2,
 		fixedParams: struct{ t, v, w int }{
@@ -45,7 +46,8 @@ func init() {
 			v: 2,
 			w: 3,
 		},
-		Table: &tableGenerator448,
+		TabSign:  &tabSign448,
+		TabVerif: &tabVerif448,
 		order: []uint64{
 			0x2378c292ab5844f3, 0x216cc2728dc58f55, 0xc44edb49aed63690,
 			0xffffffff7cca23e9, 0xffffffffffffffff, 0xffffffffffffffff,

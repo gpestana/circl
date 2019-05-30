@@ -3,10 +3,11 @@ package eddsa
 import (
 	"crypto/subtle"
 	"encoding/binary"
-	// "fmt"
+	"math/big"
 	"math/bits"
 
 	"github.com/cloudflare/circl/internal/conv"
+	"github.com/cloudflare/circl/math"
 )
 
 type curve struct {
@@ -129,8 +130,46 @@ func (ecc *curve) fixedMult(P pointR1, S pointR3, scalar []byte) {
 	}
 }
 
-func (ecc *curve) doubleMult(sBhA, A pointR1, s, h []byte) {
+// P = sBhA
+func (ecc *curve) doubleMult(P, A pointR2, m, n []byte) {
+	const nOmega = uint(5)
+	const baseOmega = uint(7)
+	var k big.Int
+	k.SetBytes(m)
+	nafM := math.OmegaNAF(&k, baseOmega)
+	k.SetBytes(n)
+	nafN := math.OmegaNAF(&k, nOmega)
 
+	if len(nafM) > len(nafN) {
+		nafN = append(nafN, make([]int32, len(nafM)-len(nafN))...)
+	} else if len(nafM) < len(nafN) {
+		nafM = append(nafM, make([]int32, len(nafN)-len(nafM))...)
+	}
+	var TabA [1 << (nOmega - 1)]pointR2
+	A.oddMultiples(TabA[:])
+	P.SetIdentity()
+	for i := len(nafN) - 1; i >= 0; i-- {
+		P.double()
+		// Generator point
+		/*	if nafM[i] != 0 {
+			idxM := absolute(nafM[i]) >> 1
+			aR = baseOddMultiples[idxM]
+			if nafM[i] < 0 {
+				aR.neg()
+			}
+			P.mixadd(&P, &aR)
+		}*/
+		// Input point
+		if nafN[i] != 0 {
+			idxN := absolute(nafN[i]) >> 1
+			Q := TabA[idxN]
+			if nafN[i] < 0 {
+				Q = Q.neg()
+			}
+			P.add(Q)
+			P.add(Q)
+		}
+	}
 }
 
 func (ecc *curve) reduceModOrder(k []byte) {

@@ -23,9 +23,20 @@ type pointR1 interface {
 	mixAdd(pointR3)
 }
 
+type pointR2 interface {
+	SetIdentity()
+	copy() pointR2
+	neg() pointR2
+	double()
+	add(pointR2)
+	oddMultiples([]pointR2)
+}
+
 type point255R1 struct{ x, y, z, ta, tb fp255.Elt }
+type point255R2 struct{ x, y, z, t fp255.Elt }
 type point255R3 struct{ addYX, subYX, dt2 fp255.Elt }
 type point448R1 struct{ x, y, z, ta, tb fp448.Elt }
+type point448R2 struct{ x, y, z, t fp448.Elt }
 type point448R3 struct{ addYX, subYX, dt2 fp448.Elt }
 
 func (P *point255R1) String() string {
@@ -54,7 +65,54 @@ func (P *point255R1) ToBytes(k []byte) {
 	k[31] = k[31] | (b << 7)
 }
 
-func (P *point255R1) FromBytes(k []byte) bool {
+func (P *point255R1) SetIdentity() {
+	fp255.SetZero(&P.x)
+	fp255.SetOne(&P.y)
+	fp255.SetOne(&P.z)
+	fp255.SetZero(&P.ta)
+	fp255.SetZero(&P.tb)
+}
+
+func (P *point255R1) SetGenerator() {
+	copy(P.x[:], edwards25519.genX)
+	copy(P.y[:], edwards25519.genY)
+	fp255.SetOne(&P.z)
+	P.ta = P.x
+	P.tb = P.y
+}
+
+func (P *point255R1) toAffine() {
+	fp255.Inv(&P.z, &P.z)
+	fp255.Mul(&P.x, &P.x, &P.z)
+	fp255.Mul(&P.y, &P.y, &P.z)
+	fp255.Modp(&P.x)
+	fp255.Modp(&P.y)
+	fp255.SetOne(&P.z)
+	P.ta = P.x
+	P.tb = P.y
+}
+
+func (P *point255R2) toAffine() {
+	fp255.Inv(&P.z, &P.z)
+	fp255.Mul(&P.x, &P.x, &P.z)
+	fp255.Mul(&P.y, &P.y, &P.z)
+	fp255.Mul(&P.t, &P.x, &P.y)
+	fp255.Modp(&P.x)
+	fp255.Modp(&P.y)
+	fp255.Modp(&P.t)
+	fp255.SetOne(&P.z)
+}
+
+func (P *point255R2) ToBytes(k []byte) {
+	P.toAffine()
+	var x [32]byte
+	fp255.ToBytes(k, &P.y)
+	fp255.ToBytes(x[:], &P.x)
+	b := x[0] & 1
+	k[31] = k[31] | (b << 7)
+}
+
+func (P *point255R2) FromBytes(k []byte) bool {
 	if len(k) != 32 {
 		panic("wrong size")
 	}
@@ -82,37 +140,9 @@ func (P *point255R1) FromBytes(k []byte) bool {
 	if signX != (P.x[0] & 1) {
 		fp255.Neg(&P.x, &P.x)
 	}
-	P.ta = P.x
-	P.tb = P.y
+	fp255.Mul(&P.t, &P.x, &P.y)
 	fp255.SetOne(&P.z)
 	return true
-}
-
-func (P *point255R1) SetIdentity() {
-	fp255.SetZero(&P.x)
-	fp255.SetOne(&P.y)
-	fp255.SetOne(&P.z)
-	fp255.SetZero(&P.ta)
-	fp255.SetZero(&P.tb)
-}
-
-func (P *point255R1) SetGenerator() {
-	copy(P.x[:], edwards25519.genX)
-	copy(P.y[:], edwards25519.genY)
-	fp255.SetOne(&P.z)
-	P.ta = P.x
-	P.tb = P.y
-}
-
-func (P *point255R1) toAffine() {
-	fp255.Inv(&P.z, &P.z)
-	fp255.Mul(&P.x, &P.x, &P.z)
-	fp255.Mul(&P.y, &P.y, &P.z)
-	fp255.Modp(&P.x)
-	fp255.Modp(&P.y)
-	fp255.SetOne(&P.z)
-	P.ta = P.x
-	P.tb = P.y
 }
 
 func (P *point255R1) double() {
@@ -174,6 +204,92 @@ func (P *point255R1) mixAdd(Q pointR3) {
 	fp255.Mul(Pz, f, g)
 	fp255.Mul(Px, e, f)
 	fp255.Mul(Py, g, h)
+}
+
+func (P *point255R2) copy() pointR2 { Q := *P; return &Q }
+
+func (P *point255R2) SetIdentity() {
+	fp255.SetZero(&P.x)
+	fp255.SetOne(&P.y)
+	fp255.SetZero(&P.t)
+	fp255.SetOne(&P.z)
+}
+func (P *point255R2) neg() pointR2 {
+	Q := &point255R2{}
+	fp255.Neg(&Q.x, &P.x)
+	fp255.Neg(&Q.t, &P.t)
+	Q.y = P.y
+	Q.z = P.z
+	return Q
+}
+func (P *point255R2) double() {
+	Px, Py, Pz, Pt := &P.x, &P.y, &P.z, &P.t
+	a := Px
+	b := Py
+	c := Pz
+	d := Pt
+	e := &fp255.Elt{}
+	f := b
+	g := a
+	fp255.Add(e, Px, Py)
+	fp255.Sqr(a, Px)
+	fp255.Sqr(b, Py)
+	fp255.Sqr(c, Pz)
+	fp255.Add(c, c, c)
+	fp255.Add(d, a, b)
+	fp255.Sqr(e, e)
+	fp255.Sub(e, e, d)
+	fp255.Sub(f, b, a)
+	fp255.Sub(g, c, f)
+	fp255.Mul(Pz, f, g)
+	fp255.Mul(Px, e, g)
+	fp255.Mul(Py, d, f)
+	fp255.Mul(Pt, e, d)
+}
+
+func (P *point255R2) add(Q pointR2) {
+	QQ, ok := Q.(*point255R2)
+	if !ok {
+		panic("wrong type")
+	}
+	_2D := &fp255.Elt{}
+	x1, y1, z1, t1 := &P.x, &P.y, &P.z, &P.t
+	x2, y2, z2, t2 := &QQ.x, &QQ.y, &QQ.z, &QQ.t
+	a := &fp255.Elt{}
+	b := &fp255.Elt{}
+	c := &fp255.Elt{}
+	d := &fp255.Elt{}
+	e := t1
+	f := x1
+	g := d
+	h := y1
+	fp255.AddSub(y1, x1)
+	fp255.AddSub(y2, x2)
+	fp255.Mul(a, x1, x2)
+	fp255.Mul(b, y1, y2)
+	fp255.Mul(c, t1, t2)
+	fp255.Mul(c, c, _2D)
+	fp255.Mul(d, z1, z2)
+	fp255.Add(d, d, d)
+	fp255.Sub(e, b, a)
+	fp255.Add(h, b, a)
+	fp255.Sub(f, d, c)
+	fp255.Add(g, d, c)
+	fp255.Mul(&P.z, f, g)
+	fp255.Mul(&P.x, e, f)
+	fp255.Mul(&P.t, e, h)
+	fp255.Mul(&P.y, g, h)
+}
+
+func (P *point255R2) oddMultiples(T []pointR2) {
+	n := len(T)
+	T[0] = P
+	_2P := *P
+	_2P.double()
+	for i := 1; i < n; i++ {
+		T[i] = T[i-1].copy()
+		T[i].add(&_2P)
+	}
 }
 
 func (P *point255R1) isEqual(Q pointR1) bool {
@@ -324,6 +440,64 @@ func (P *point448R1) mixAdd(Q pointR3) {
 	fp448.Mul(Pz, f, g)
 	fp448.Mul(Px, e, f)
 	fp448.Mul(Py, g, h)
+}
+
+func (P *point448R2) SetIdentity() {
+	fp448.SetZero(&P.x)
+	fp448.SetOne(&P.y)
+	fp448.SetZero(&P.t)
+	fp448.SetOne(&P.z)
+}
+
+func (P *point448R2) copy() pointR2 { Q := *P; return &Q }
+
+func (P *point448R2) neg() pointR2 {
+	Q := &point448R2{}
+	fp448.Neg(&Q.x, &P.x)
+	fp448.Neg(&Q.t, &P.t)
+	Q.y = P.y
+	Q.z = P.z
+	return Q
+}
+
+func (P *point448R2) double() {
+	Px, Py, Pz, Pt := &P.x, &P.y, &P.z, &P.t
+	a := Px
+	b := Py
+	c := Pz
+	d := Pt
+	e := &fp448.Elt{}
+	f := b
+	g := a
+	fp448.Add(e, Px, Py)
+	fp448.Sqr(a, Px)
+	fp448.Sqr(b, Py)
+	fp448.Sqr(c, Pz)
+	fp448.Add(c, c, c)
+	fp448.Add(d, a, b)
+	fp448.Sqr(e, e)
+	fp448.Sub(e, e, d)
+	fp448.Sub(f, b, a)
+	fp448.Sub(g, c, f)
+	fp448.Mul(Pz, f, g)
+	fp448.Mul(Px, e, g)
+	fp448.Mul(Py, d, f)
+	fp448.Mul(Pt, e, d)
+}
+
+func (P *point448R2) add(Q pointR2) {
+
+}
+
+func (P *point448R2) oddMultiples(T []pointR2) {
+	n := len(T)
+	T[0] = P
+	_2P := *P
+	_2P.double()
+	for i := 1; i < n; i++ {
+		T[i] = T[i-1].copy()
+		T[i].add(&_2P)
+	}
 }
 
 func (P *point448R1) isEqual(Q pointR1) bool {

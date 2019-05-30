@@ -4,7 +4,7 @@ package eddsa
 import (
 	"bytes"
 	"crypto/sha512"
-	"fmt"
+	// "fmt"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -60,7 +60,7 @@ func (e *Ed25519) Sign(msg []byte, public *Pk25519, private *Sk25519) *Sig25519 
 	// fmt.Printf("")
 	// fmt.Printf("ah: %x\n", ah)
 
-	H = sha512.New()
+	H.Reset()
 	_, _ = H.Write(ah[32:])
 	_, _ = H.Write(msg)
 	r := H.Sum([]byte{})
@@ -75,7 +75,7 @@ func (e *Ed25519) Sign(msg []byte, public *Pk25519, private *Sk25519) *Sig25519 
 	P.ToBytes(signature[:32])
 	// fmt.Printf("s0: %x\n", signature[:32])
 
-	H = sha512.New()
+	H.Reset()
 	_, _ = H.Write(signature[:32])
 	_, _ = H.Write(public[:])
 	_, _ = H.Write(msg)
@@ -89,22 +89,22 @@ func (e *Ed25519) Sign(msg []byte, public *Pk25519, private *Sk25519) *Sig25519 
 }
 
 func (e *Ed25519) Verify(msg []byte, public *Pk25519, sig *Sig25519) bool {
-	var A point255R1
-	fmt.Printf("pk: %x\n", public)
+	var A point255R2
+	// fmt.Printf("pk: %x\n", public)
 	if ok := A.FromBytes(public[:]); !ok {
 		return false
 	}
-	fmt.Printf("A: %v\n", &A)
+	// fmt.Printf("A: %v\n", &A)
 
 	H := sha512.New()
 	_, _ = H.Write(sig[:32])
 	_, _ = H.Write(public[:])
 	_, _ = H.Write(msg)
 	hRAM := H.Sum([]byte{})
-	fmt.Printf("hRAM: %x\n", hRAM[:])
+	// fmt.Printf("hRAM: %x\n", hRAM[:])
 	edwards25519.reduceModOrder(hRAM[:])
-	fmt.Printf("hRAM: %x\n", hRAM[:32])
-	var P point255R1
+	// fmt.Printf("hRAM: %x\n", hRAM[:32])
+	var P point255R2
 	edwards25519.doubleMult(&P, &A, sig[:32], hRAM[:32])
 	var encP [32]byte
 	P.ToBytes(encP[:])
@@ -126,7 +126,7 @@ func (e *Ed448) KeyGen(public *Pk448, private *Sk448) {
 	edwards448.fixedMult(&P, &S, dig[:57])
 	P.ToBytes(public[:])
 }
-func (e *Ed448) Sign(msg []byte, private *Sk448) *Sig448 {
+func (e *Ed448) Sign(msg []byte, public *Pk448, private *Sk448) *Sig448 {
 	var signature Sig448
 	return &signature
 }

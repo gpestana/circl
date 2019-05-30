@@ -65,26 +65,30 @@ func testPoint(t *testing.T, P, Q pointR1, R pointR3, c *curve) {
 }
 
 func BenchmarkPoint(b *testing.B) {
-	var P, Q pointR1
+	var P pointR1
+	var Q0, Q1 pointR2
 	var R pointR3
 	b.Run("ed25519", func(b *testing.B) {
 		P = &point255R1{}
-		Q = &point255R1{}
+		Q0 = &point255R2{}
+		Q1 = &point255R2{}
 		R = &point255R3{}
-		benchmarkPoint(b, P, Q, R, edwards25519)
+		benchmarkPoint(b, P, Q0, Q1, R, edwards25519)
 	})
-	// b.Run("ed448", func(b *testing.B) {
-	// 	P = &point448R1{}
-	// 	Q = &point448R3{}
-	// 	R = &point448R3{}
-	// 	benchmarkPoint(b, P, Q, R, edwards448)
-	// })
+	b.Run("ed448", func(b *testing.B) {
+		P = &point448R1{}
+		Q0 = &point448R2{}
+		Q1 = &point448R2{}
+		R = &point448R3{}
+		benchmarkPoint(b, P, Q0, Q1, R, edwards448)
+	})
 }
 
-func benchmarkPoint(b *testing.B, P, Q pointR1, R pointR3, c *curve) {
+func benchmarkPoint(b *testing.B, P pointR1, Q0, Q1 pointR2, R pointR3, c *curve) {
 	k := make([]byte, (c.size+7)/8)
 	l := make([]byte, (c.size+7)/8)
 	_, _ = rand.Read(k)
+	_, _ = rand.Read(l)
 	P.SetGenerator()
 	b.Run("toAffine", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -101,6 +105,11 @@ func benchmarkPoint(b *testing.B, P, Q pointR1, R pointR3, c *curve) {
 			P.mixAdd(R)
 		}
 	})
+	b.Run("add", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			Q1.add(Q0)
+		}
+	})
 	b.Run("fixedMult", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			c.fixedMult(P, R, k)
@@ -108,7 +117,7 @@ func benchmarkPoint(b *testing.B, P, Q pointR1, R pointR3, c *curve) {
 	})
 	b.Run("doubleMult", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			c.doubleMult(P, Q, k, l)
+			c.doubleMult(Q0, Q1, k, l)
 		}
 	})
 }

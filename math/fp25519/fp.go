@@ -3,6 +3,8 @@ package fp25519
 
 import "github.com/cloudflare/circl/internal/conv"
 
+// import "fmt"
+
 // Size in bytes of an element.
 const Size = 32
 
@@ -35,13 +37,15 @@ func SetZero(x *Elt)     { *x = Elt{} }
 func SetOne(x *Elt)      { SetZero(x); x[0] = 1 }
 func Neg(z, x *Elt)      { Sub(z, &p, x) }
 
-// InvSqrt calculates z = sqrt(x/y)
-func InvSqrt(z, x, y *Elt) {
+// InvSqrt calculates z = sqrt(x/y) iff (x/y) is a quadratic-residue, which is
+// indicated by returning isQR = true. If (x/y) is a quadratic non-residue, the
+// will have an undetermined value and isQR=false.
+func InvSqrt(z, x, y *Elt) (isQR bool) {
 	sqrtMinusOne := &Elt{
-		0xc4, 0xee, 0x1b, 0x27, 0x4a, 0x0e, 0xa0, 0xb0,
-		0x2f, 0x43, 0x18, 0x06, 0xad, 0x2f, 0xe4, 0x78,
-		0x2b, 0x4d, 0x00, 0x99, 0x3d, 0xfb, 0xd7, 0xa7,
-		0x2b, 0x83, 0x24, 0x80, 0x4f, 0xc1, 0xdf, 0x0b,
+		0xb0, 0xa0, 0x0e, 0x4a, 0x27, 0x1b, 0xee, 0xc4,
+		0x78, 0xe4, 0x2f, 0xad, 0x06, 0x18, 0x43, 0x2f,
+		0xa7, 0xd7, 0xfb, 0x3d, 0x99, 0x00, 0x4d, 0x2b,
+		0x0b, 0xdf, 0xc1, 0x4f, 0x80, 0x24, 0x83, 0x2b,
 	}
 	t0, t1, t2, t3 := &Elt{}, &Elt{}, &Elt{}, &Elt{}
 
@@ -50,6 +54,9 @@ func InvSqrt(z, x, y *Elt) {
 	Mul(t2, t0, t1) // t2 = u*v^3
 	Sqr(t0, t1)     // t0 = v^4
 	Mul(t1, t0, t2) // t1 = u*v^7
+	// fmt.Printf("t0: %v\n", t0)
+	// fmt.Printf("t1: %v\n", t1)
+	// fmt.Printf("t2: %v\n", t2)
 
 	var Tab [4]*Elt
 	Tab[0] = &Elt{}
@@ -103,14 +110,23 @@ func InvSqrt(z, x, y *Elt) {
 	Sqr(Tab[2], Tab[2])
 	Mul(Tab[2], Tab[2], Tab[3])
 
-	Mul(t0, z, t2) // uv^(p+3)/8 = uv3*uv^(p-5)/8
-	// Checking whether v*uv_p38^2 == -u
-	Sqr(t0, t0)    // uv3 = uv_p38^2
-	Mul(t1, t2, y) // uv = uv3*v
-	Neg(x, x)      //  u = -u
-	Sub(t0, t0, x) // t0 = u-uv
-	if IsZero(t0) {
-		Mul(z, z, sqrtMinusOne) //  uv_p38 = uv_p38*sqrt(-1)
+	// fmt.Printf("t3: %v\n", t3)
+	Mul(z, t3, t2) // z = xy^(p+3)/8 = xy^3*(xy^7)^(p-5)/8
+	// fmt.Printf("z: %v\n", z)
+	// Checking whether y z^2 == x
+	Sqr(t0, z)     // t0 = z^2
+	Mul(t0, t0, y) // t0 = yz^2
+	Sub(t1, t0, x) // t1 = t0-u
+	Add(t2, t0, x) // t2 = t0+u
+	if IsZero(t1) {
+		// fmt.Printf("case 1\n")
+		return true
+	} else if IsZero(t2) {
+		// fmt.Printf("case 2\n")
+		Mul(z, z, sqrtMinusOne) // z = z*sqrt(-1)
+		return true
+	} else {
+		return false
 	}
 }
 

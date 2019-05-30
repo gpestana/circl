@@ -4,7 +4,7 @@ package eddsa
 import (
 	"bytes"
 	"crypto/sha512"
-	// "fmt"
+	"fmt"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -90,18 +90,20 @@ func (e *Ed25519) Sign(msg []byte, public *Pk25519, private *Sk25519) *Sig25519 
 
 func (e *Ed25519) Verify(msg []byte, public *Pk25519, sig *Sig25519) bool {
 	var A point255R1
+	fmt.Printf("pk: %x\n", public)
 	if ok := A.FromBytes(public[:]); !ok {
 		return false
 	}
+	fmt.Printf("A: %v\n", &A)
 
 	H := sha512.New()
 	_, _ = H.Write(sig[:32])
 	_, _ = H.Write(public[:])
 	_, _ = H.Write(msg)
 	hRAM := H.Sum([]byte{})
-	// fmt.Printf("hRAM: %x\n", hRAM[:])
+	fmt.Printf("hRAM: %x\n", hRAM[:])
 	edwards25519.reduceModOrder(hRAM[:])
-	// fmt.Printf("hRAM: %x\n", hRAM[:32])
+	fmt.Printf("hRAM: %x\n", hRAM[:32])
 	var P point255R1
 	edwards25519.doubleMult(&P, &A, sig[:32], hRAM[:32])
 	var encP [32]byte

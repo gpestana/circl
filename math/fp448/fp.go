@@ -41,9 +41,11 @@ func Neg(z, x *Elt)      { Sub(z, &p, x) }
 // Modp ensures that z is between [0,p-1]
 func Modp(z *Elt) { Sub(z, z, &p) }
 
-// InvSqrt calculates z = sqrt(x/y)
-func InvSqrt(z, x, y *Elt) {
-
+// InvSqrt calculates z = sqrt(x/y) iff (x/y) is a quadratic-residue, which is
+// indicated by returning isQR = true. If (x/y) is a quadratic non-residue, the
+// will have an undetermined value and isQR=false.
+func InvSqrt(z, x, y *Elt) (isQR bool) {
+	return true
 }
 
 // Inv calculates z = 1/x mod p

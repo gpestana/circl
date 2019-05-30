@@ -262,6 +262,52 @@ func TestFp(t *testing.T) {
 			}
 		}
 	})
+	t.Run("InvSqrt", func(t *testing.T) {
+		exp := big.NewInt(3)
+		exp.Add(p, exp).Rsh(exp, 3)
+		var frac, root, sqRoot big.Int
+		var wantQR bool
+		var want *big.Int
+		sqrtMinusOne, _ := new(big.Int).SetString("2b8324804fc1df0b2b4d00993dfbd7a72f431806ad2fe478c4ee1b274a0ea0b0", 16)
+		for i := 0; i < numTests; i++ {
+			_, _ = rand.Read(x[:])
+			_, _ = rand.Read(y[:])
+
+			gotQR := fp.InvSqrt(&z, &x, &y)
+			fp.Modp(&z)
+			got := conv.BytesLe2BigInt(z[:])
+
+			xx := conv.BytesLe2BigInt(x[:])
+			yy := conv.BytesLe2BigInt(y[:])
+			frac.ModInverse(yy, p).Mul(&frac, xx).Mod(&frac, p)
+			root.Exp(&frac, exp, p)
+			sqRoot.Mul(&root, &root).Mod(&sqRoot, p)
+
+			if sqRoot.Cmp(&frac) == 0 {
+				want = &root
+				wantQR = true
+			} else {
+				frac.Neg(&frac).Mod(&frac, p)
+				if sqRoot.Cmp(&frac) == 0 {
+					want = root.Mul(&root, sqrtMinusOne).Mod(&root, p)
+					wantQR = true
+				} else {
+					want = big.NewInt(0)
+					wantQR = false
+				}
+			}
+
+			if wantQR {
+				if gotQR != wantQR || got.Cmp(want) != 0 {
+					test.ReportError(t, got, want, x, y)
+				}
+			} else {
+				if gotQR != wantQR {
+					test.ReportError(t, gotQR, wantQR, x, y)
+				}
+			}
+		}
+	})
 }
 
 func BenchmarkFp(b *testing.B) {

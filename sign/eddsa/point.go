@@ -67,13 +67,19 @@ func (P *point255R1) FromBytes(k []byte) bool {
 
 	one, u, v := &fp255.Elt{}, &fp255.Elt{}, &fp255.Elt{}
 	fp255.SetOne(one)
-	fp255.Sqr(u, &P.y)        // u = y^2
-	fp255.Mul(v, u, d)        // v = dy^2
-	fp255.Sub(u, u, one)      // u = y^2-1
-	fp255.Add(v, v, one)      // v = dy^2+1
-	fp255.InvSqrt(&P.x, u, v) // x = sqrt(u/v)
-	fp255.Modp(&P.x)          // x = x mod p
-	if signX == (P.x[0] & 1) {
+	fp255.Sqr(u, &P.y)              // u = y^2
+	fp255.Mul(v, u, d)              // v = dy^2
+	fp255.Sub(u, u, one)            // u = y^2-1
+	fp255.Add(v, v, one)            // v = dy^2+1
+	ok := fp255.InvSqrt(&P.x, u, v) // x = sqrt(u/v)
+	if !ok {
+		return false
+	}
+	fp255.Modp(&P.x) // x = x mod p
+	if fp255.IsZero(&P.x) && signX == 1 {
+		return false
+	}
+	if signX != (P.x[0] & 1) {
 		fp255.Neg(&P.x, &P.x)
 	}
 	P.ta = P.x
@@ -81,6 +87,7 @@ func (P *point255R1) FromBytes(k []byte) bool {
 	fp255.SetOne(&P.z)
 	return true
 }
+
 func (P *point255R1) SetIdentity() {
 	fp255.SetZero(&P.x)
 	fp255.SetOne(&P.y)

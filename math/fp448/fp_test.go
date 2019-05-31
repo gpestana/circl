@@ -2,6 +2,7 @@ package fp448_test
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -15,7 +16,62 @@ func TestFp(t *testing.T) {
 	var x, y, z fp.Elt
 	prime := fp.P()
 	p := conv.BytesLe2BigInt(prime[:])
+	t.Run("IsZero", func(t *testing.T) {
+		fp.SetZero(&x)
+		got := fp.IsZero(&x)
+		want := true
+		if got != want {
+			test.ReportError(t, got, want, x)
+		}
 
+		fp.SetOne(&x)
+		got = fp.IsZero(&x)
+		want = false
+		if got != want {
+			test.ReportError(t, got, want, x)
+		}
+
+		x = fp.P()
+		got = fp.IsZero(&x)
+		want = true
+		if got != want {
+			test.ReportError(t, got, want, x)
+		}
+	})
+	t.Run("ToBytes", func(t *testing.T) {
+		var got, want [fp.Size]byte
+		for i := 0; i < numTests; i++ {
+			_, _ = rand.Read(x[:])
+			fp.ToBytes(got[:], &x)
+			conv.BigInt2BytesLe(want[:], conv.BytesLe2BigInt(x[:]))
+
+			if got != want {
+				test.ReportError(t, got, want, x)
+			}
+		}
+		var small [fp.Size + 1]byte
+		defer func() {
+			if r := recover(); r == nil {
+				got := r
+				want := "should panic!"
+				test.ReportError(t, got, want)
+			}
+		}()
+		fp.ToBytes(small[:], &x)
+	})
+	t.Run("String", func(t *testing.T) {
+		var bigX big.Int
+		for i := 0; i < numTests; i++ {
+			_, _ = rand.Read(x[:])
+			s := fmt.Sprint(x)
+			got, _ := bigX.SetString(s, 0)
+			want := conv.BytesLe2BigInt(x[:])
+
+			if got.Cmp(want) != 0 {
+				test.ReportError(t, got, want, x)
+			}
+		}
+	})
 	t.Run("Cmov", func(t *testing.T) {
 		for i := 0; i < numTests; i++ {
 			_, _ = rand.Read(x[:])
@@ -71,6 +127,21 @@ func TestFp(t *testing.T) {
 			got := conv.BytesLe2BigInt(x[:])
 
 			want.Mod(bigX, p)
+
+			if got.Cmp(want) != 0 {
+				test.ReportError(t, got, want, bigX)
+			}
+		}
+	})
+	t.Run("Neg", func(t *testing.T) {
+		for i := 0; i < numTests; i++ {
+			_, _ = rand.Read(x[:])
+			fp.Neg(&z, &x)
+			fp.Modp(&z)
+			got := conv.BytesLe2BigInt(z[:])
+
+			bigX := conv.BytesLe2BigInt(x[:])
+			want := bigX.Neg(bigX).Mod(bigX, p)
 
 			if got.Cmp(want) != 0 {
 				test.ReportError(t, got, want, bigX)

@@ -1,38 +1,37 @@
-package eddsa
+package ed25519
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	fp255 "github.com/cloudflare/circl/math/fp25519"
 )
 
-type point255R1 struct{ x, y, z, ta, tb fp255.Elt }
-type point255R2 struct {
-	point255R3
+type pointR1 struct{ x, y, z, ta, tb fp255.Elt }
+type pointR2 struct {
+	pointR3
 	z2 fp255.Elt
 }
-type point255R3 struct{ addYX, subYX, dt2 fp255.Elt }
+type pointR3 struct{ addYX, subYX, dt2 fp255.Elt }
 
-func (P *point255R1) String() string {
+func (P pointR1) String() string {
 	return fmt.Sprintf("\nx=  %v\ny=  %v\nta= %v\ntb= %v\nz=  %v",
 		P.x, P.y, P.ta, P.tb, P.z)
 }
-func (P *point255R3) String() string {
+func (P pointR3) String() string {
 	return fmt.Sprintf("\naddYX= %v\nsubYX= %v\ndt2=  %v",
 		P.addYX, P.subYX, P.dt2)
 }
-func (P *point255R2) String() string {
-	return fmt.Sprintf("%v\nz2=  %v", &P.point255R3, P.z2)
+func (P pointR2) String() string {
+	return fmt.Sprintf("%v\nz2=  %v", &P.pointR3, P.z2)
 }
 
-func (P *point255R1) neg() {
+func (P *pointR1) neg() {
 	fp255.Neg(&P.x, &P.x)
 	fp255.Neg(&P.ta, &P.ta)
 }
 
-func (P *point255R1) copy() pointR1 { Q := *P; return &Q }
-
-func (P *point255R1) SetIdentity() {
+func (P *pointR1) SetIdentity() {
 	fp255.SetZero(&P.x)
 	fp255.SetOne(&P.y)
 	fp255.SetOne(&P.z)
@@ -40,15 +39,7 @@ func (P *point255R1) SetIdentity() {
 	fp255.SetZero(&P.tb)
 }
 
-func (P *point255R1) SetGenerator() {
-	copy(P.x[:], edwards25519.genX)
-	copy(P.y[:], edwards25519.genY)
-	fp255.SetOne(&P.z)
-	P.ta = P.x
-	P.tb = P.y
-}
-
-func (P *point255R1) toAffine() {
+func (P *pointR1) toAffine() {
 	fp255.Inv(&P.z, &P.z)
 	fp255.Mul(&P.x, &P.x, &P.z)
 	fp255.Mul(&P.y, &P.y, &P.z)
@@ -59,7 +50,7 @@ func (P *point255R1) toAffine() {
 	P.tb = P.y
 }
 
-func (P *point255R1) ToBytes(k []byte) {
+func (P *pointR1) ToBytes(k []byte) {
 	P.toAffine()
 	var x [32]byte
 	fp255.ToBytes(k, &P.y)
@@ -68,24 +59,48 @@ func (P *point255R1) ToBytes(k []byte) {
 	k[31] = k[31] | (b << 7)
 }
 
-func (P *point255R1) FromBytes(k []byte) bool {
+func isGreaterThanP(x *fp255.Elt) bool {
+	p := fp255.P()
+	n := 8
+	x0 := binary.LittleEndian.Uint64(x[0*n : 1*n])
+	x1 := binary.LittleEndian.Uint64(x[1*n : 2*n])
+	x2 := binary.LittleEndian.Uint64(x[2*n : 3*n])
+	x3 := binary.LittleEndian.Uint64(x[3*n : 4*n])
+	p0 := binary.LittleEndian.Uint64(p[0*n : 1*n])
+	p1 := binary.LittleEndian.Uint64(p[1*n : 2*n])
+	p2 := binary.LittleEndian.Uint64(p[2*n : 3*n])
+	p3 := binary.LittleEndian.Uint64(p[3*n : 4*n])
+
+	if x3 >= p3 {
+		return true
+	} else if x2 >= p2 {
+		return true
+	} else if x1 >= p1 {
+		return true
+	} else if x0 >= p0 {
+		return true
+	}
+	return false
+}
+
+func (P *pointR1) FromBytes(k []byte) bool {
 	if len(k) != 32 {
 		panic("wrong size")
 	}
 	signX := k[31] >> 7
 	copy(P.y[:], k)
 	P.y[31] &= 0x7F
-
-	d := &fp255.Elt{}
-	copy(d[:], edwards25519.paramD)
+	if isGreaterThanP(&P.y) {
+		return false
+	}
 
 	one, u, v := &fp255.Elt{}, &fp255.Elt{}, &fp255.Elt{}
 	fp255.SetOne(one)
-	fp255.Sqr(u, &P.y)              // u = y^2
-	fp255.Mul(v, u, d)              // v = dy^2
-	fp255.Sub(u, u, one)            // u = y^2-1
-	fp255.Add(v, v, one)            // v = dy^2+1
-	ok := fp255.InvSqrt(&P.x, u, v) // x = sqrt(u/v)
+	fp255.Sqr(u, &P.y)                           // u = y^2
+	fp255.Mul(v, u, (*fp255.Elt)(&curve.paramD)) // v = dy^2
+	fp255.Sub(u, u, one)                         // u = y^2-1
+	fp255.Add(v, v, one)                         // v = dy^2+1
+	ok := fp255.InvSqrt(&P.x, u, v)              // x = sqrt(u/v)
 	if !ok {
 		return false
 	}
@@ -102,7 +117,7 @@ func (P *point255R1) FromBytes(k []byte) bool {
 	return true
 }
 
-func (P *point255R1) double() {
+func (P *pointR1) double() {
 	Px, Py, Pz, Pta, Ptb := &P.x, &P.y, &P.z, &P.ta, &P.tb
 	a := Px
 	b := Py
@@ -126,14 +141,10 @@ func (P *point255R1) double() {
 	fp255.Mul(Py, d, f)
 }
 
-func (P *point255R1) mixAdd(Q pointR3) {
-	QQ, ok := Q.(*point255R3)
-	if !ok {
-		panic("wrong type")
-	}
-	addYX := &QQ.addYX
-	subYX := &QQ.subYX
-	dt2 := &QQ.dt2
+func (P *pointR1) mixAdd(Q *pointR3) {
+	addYX := &Q.addYX
+	subYX := &Q.subYX
+	dt2 := &Q.dt2
 	Px := &P.x
 	Py := &P.y
 	Pz := &P.z
@@ -163,15 +174,11 @@ func (P *point255R1) mixAdd(Q pointR3) {
 	fp255.Mul(Py, g, h)
 }
 
-func (P *point255R1) add(Q pointR2) {
-	QQ, ok := Q.(*point255R2)
-	if !ok {
-		panic("wrong type")
-	}
-	addYX := &QQ.addYX
-	subYX := &QQ.subYX
-	dt2 := &QQ.dt2
-	z2 := &QQ.z2
+func (P *pointR1) add(Q *pointR2) {
+	addYX := &Q.addYX
+	subYX := &Q.subYX
+	dt2 := &Q.dt2
+	z2 := &Q.z2
 	Px := &P.x
 	Py := &P.y
 	Pz := &P.z
@@ -201,98 +208,61 @@ func (P *point255R1) add(Q pointR2) {
 	fp255.Mul(Py, g, h)
 }
 
-func (P *point255R1) oddMultiples(T []pointR2) {
-	var R point255R2
+func (P *pointR1) oddMultiples(T []pointR2) {
+	var R pointR2
 	n := len(T)
-	T[0] = new(point255R2)
 	T[0].fromR1(P)
 	_2P := *P
 	_2P.double()
 	R.fromR1(&_2P)
-	Q := *P
 	for i := 1; i < n; i++ {
-		Q.add(&R)
-		T[i] = new(point255R2)
-		T[i].fromR1(&Q)
+		P.add(&R)
+		T[i].fromR1(P)
 	}
 }
 
-func (P *point255R1) isEqual(Q pointR1) bool {
-	QQ, ok := Q.(*point255R1)
-	if !ok {
-		panic("wrong type")
-	}
+func (P *pointR1) isEqual(Q *pointR1) bool {
 	l, r := &fp255.Elt{}, &fp255.Elt{}
-	fp255.Mul(l, &P.x, &QQ.z)
-	fp255.Mul(r, &QQ.x, &P.z)
+	fp255.Mul(l, &P.x, &Q.z)
+	fp255.Mul(r, &Q.x, &P.z)
 	fp255.Sub(l, l, r)
 	b := fp255.IsZero(l)
-	fp255.Mul(l, &P.y, &QQ.z)
-	fp255.Mul(r, &QQ.y, &P.z)
+	fp255.Mul(l, &P.y, &Q.z)
+	fp255.Mul(r, &Q.y, &P.z)
 	fp255.Sub(l, l, r)
 	b = b && fp255.IsZero(l)
 	fp255.Mul(l, &P.ta, &P.tb)
-	fp255.Mul(l, l, &QQ.z)
-	fp255.Mul(r, &QQ.ta, &QQ.tb)
+	fp255.Mul(l, l, &Q.z)
+	fp255.Mul(r, &Q.ta, &Q.tb)
 	fp255.Mul(r, r, &P.z)
 	fp255.Sub(l, l, r)
 	b = b && fp255.IsZero(l)
 	return b
 }
 
-func (P *point255R2) neg() pointR2 {
-	Q := &point255R2{}
-	Q.addYX = P.subYX
-	Q.subYX = P.addYX
-	fp255.Neg(&Q.dt2, &P.dt2)
-	Q.z2 = P.z2
-	return Q
+func (P *pointR3) neg() {
+	P.addYX, P.subYX = P.subYX, P.addYX
+	fp255.Neg(&P.dt2, &P.dt2)
 }
 
-func (P *point255R2) fromR1(Q pointR1) {
-	QQ, ok := Q.(*point255R1)
-	if !ok {
-		panic("wrong type")
-	}
-	P.point255R3.fromR1(QQ)
-	fp255.Add(&P.z2, &QQ.z, &QQ.z)
+func (P *pointR2) fromR1(Q *pointR1) {
+	fp255.Add(&P.addYX, &Q.y, &Q.x)
+	fp255.Sub(&P.subYX, &Q.y, &Q.x)
+	fp255.Mul(&P.dt2, &Q.ta, &Q.tb)
+	fp255.Mul(&P.dt2, &P.dt2, (*fp255.Elt)(&curve.paramD))
+	fp255.Add(&P.dt2, &P.dt2, &P.dt2)
+	fp255.Add(&P.z2, &Q.z, &Q.z)
 }
 
-func (P *point255R3) neg() pointR3 {
-	Q := &point255R3{}
-	Q.addYX = P.subYX
-	Q.subYX = P.addYX
-	fp255.Neg(&Q.dt2, &P.dt2)
-	return Q
-}
-
-func (P *point255R3) cneg(b int) {
+func (P *pointR3) cneg(b int) {
 	t := &fp255.Elt{}
 	fp255.Cswap(&P.addYX, &P.subYX, uint(b))
 	fp255.Neg(t, &P.dt2)
 	fp255.Cmov(&P.dt2, t, uint(b))
 }
 
-func (P *point255R3) cmov(Q pointR3, b int) {
-	QQ, ok := Q.(*point255R3)
-	if !ok {
-		panic("wrong type")
-	}
-	fp255.Cmov(&P.addYX, &QQ.addYX, uint(b))
-	fp255.Cmov(&P.subYX, &QQ.subYX, uint(b))
-	fp255.Cmov(&P.dt2, &QQ.dt2, uint(b))
-}
-
-func (P *point255R3) fromR1(Q pointR1) {
-	QQ, ok := Q.(*point255R1)
-	if !ok {
-		panic("wrong type")
-	}
-	var d fp255.Elt
-	copy(d[:], edwards25519.paramD)
-	fp255.Add(&P.addYX, &QQ.y, &QQ.x)
-	fp255.Sub(&P.subYX, &QQ.y, &QQ.x)
-	fp255.Mul(&P.dt2, &QQ.ta, &QQ.tb)
-	fp255.Mul(&P.dt2, &P.dt2, &d)
-	fp255.Add(&P.dt2, &P.dt2, &P.dt2)
+func (P *pointR3) cmov(Q *pointR3, b int) {
+	fp255.Cmov(&P.addYX, &Q.addYX, uint(b))
+	fp255.Cmov(&P.subYX, &Q.subYX, uint(b))
+	fp255.Cmov(&P.dt2, &Q.dt2, uint(b))
 }

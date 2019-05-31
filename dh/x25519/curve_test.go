@@ -1,4 +1,4 @@
-package xcurve
+package x25519
 
 import (
 	"crypto/rand"
@@ -8,7 +8,6 @@ import (
 	"github.com/cloudflare/circl/internal/conv"
 	"github.com/cloudflare/circl/internal/test"
 	fp255 "github.com/cloudflare/circl/math/fp25519"
-	"github.com/cloudflare/circl/math/fp448"
 )
 
 // Montgomery point doubling in projective (X:Z) coordintates.
@@ -81,7 +80,7 @@ func ladderStepBig(work [5]*big.Int, A24, p *big.Int, b uint) {
 	z3.Mul(z3, z3).Mul(z3, x1).Mod(z3, p)
 }
 
-func TestCurve255(t *testing.T) {
+func TestCurve(t *testing.T) {
 	numTests := 1 << 9
 	p := big.NewInt(1)
 	p.Lsh(p, 255).Sub(p, big.NewInt(19))
@@ -167,110 +166,6 @@ func TestCurve255(t *testing.T) {
 			b := uint(w[0][0] & 1)
 
 			c255.ladderStep(&w, b)
-
-			ladderStepBig(bigWork, A24, p, b)
-
-			for j := range bigWork {
-				got := conv.BytesLe2BigInt(w[j][:])
-				got.Mod(got, p)
-				want := bigWork[j]
-				if got.Cmp(want) != 0 {
-					test.ReportError(t, got, want, w, b)
-				}
-			}
-		}
-	})
-}
-
-func TestCurve448(t *testing.T) {
-	numTests := 1 << 9
-	p := big.NewInt(1)
-	p.Lsh(p, 224)
-	p.Sub(p, new(big.Int).SetInt64(1))
-	p.Lsh(p, 224)
-	p.Sub(p, new(big.Int).SetInt64(1))
-	A24 := big.NewInt(39082)
-
-	t.Run("mulA24", func(t *testing.T) {
-		var x, z fp448.Elt
-		for i := 0; i < numTests; i++ {
-			_, _ = rand.Read(x[:])
-			bigX := conv.BytesLe2BigInt(x[:])
-			c448.mulA24(&z, &x)
-			got := conv.BytesLe2BigInt(z[:])
-			got.Mod(got, p)
-
-			want := bigX.Mul(bigX, A24).Mod(bigX, p)
-
-			if got.Cmp(want) != 0 {
-				test.ReportError(t, got, want, x)
-			}
-		}
-	})
-
-	t.Run("double", func(t *testing.T) {
-		var x, z fp448.Elt
-		for i := 0; i < numTests; i++ {
-			_, _ = rand.Read(x[:])
-			_, _ = rand.Read(z[:])
-
-			bigX := conv.BytesLe2BigInt(x[:])
-			bigZ := conv.BytesLe2BigInt(z[:])
-			c448.double(&x, &z)
-			got0 := conv.BytesLe2BigInt(x[:])
-			got1 := conv.BytesLe2BigInt(z[:])
-			got0.Mod(got0, p)
-			got1.Mod(got1, p)
-
-			doubleBig(bigX, bigZ, A24, p)
-			want0 := bigX
-			want1 := bigZ
-
-			if got0.Cmp(want0) != 0 {
-				test.ReportError(t, got0, want0, x, z)
-			}
-			if got1.Cmp(want1) != 0 {
-				test.ReportError(t, got1, want1, x, z)
-			}
-		}
-	})
-
-	t.Run("diffAdd", func(t *testing.T) {
-		var w [5]fp448.Elt
-		bigWork := [5]*big.Int{}
-		for i := 0; i < numTests; i++ {
-			for j := range w {
-				_, _ = rand.Read(w[j][:])
-				bigWork[j] = conv.BytesLe2BigInt(w[j][:])
-			}
-			b := uint(w[0][0] & 1)
-
-			c448.difAdd(&w, b)
-
-			diffAddBig(bigWork, p, b)
-
-			for j := range bigWork {
-				got := conv.BytesLe2BigInt(w[j][:])
-				got.Mod(got, p)
-				want := bigWork[j]
-				if got.Cmp(want) != 0 {
-					test.ReportError(t, got, want, w, b)
-				}
-			}
-		}
-	})
-
-	t.Run("ladderStep", func(t *testing.T) {
-		var w [5]fp448.Elt
-		bigWork := [5]*big.Int{}
-		for i := 0; i < numTests; i++ {
-			for j := range w {
-				_, _ = rand.Read(w[j][:])
-				bigWork[j] = conv.BytesLe2BigInt(w[j][:])
-			}
-			b := uint(w[0][0] & 1)
-
-			c448.ladderStep(&w, b)
 
 			ladderStepBig(bigWork, A24, p, b)
 

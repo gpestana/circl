@@ -1,0 +1,17 @@
+mode: set
+github.com/cloudflare/circl/dh/x448/curve.go:14.36,40.27 9 1
+github.com/cloudflare/circl/dh/x448/curve.go:48.2,48.25 1 1
+github.com/cloudflare/circl/dh/x448/curve.go:51.2,51.50 1 1
+github.com/cloudflare/circl/dh/x448/curve.go:40.27,47.3 6 1
+github.com/cloudflare/circl/dh/x448/curve.go:48.25,50.3 1 1
+github.com/cloudflare/circl/dh/x448/curve.go:56.46,64.32 7 1
+github.com/cloudflare/circl/dh/x448/curve.go:71.2,71.50 1 1
+github.com/cloudflare/circl/dh/x448/curve.go:64.32,70.3 5 1
+github.com/cloudflare/circl/dh/x448/curve.go:74.64,78.2 3 1
+github.com/cloudflare/circl/dh/x448/curve_amd64.go:12.53,12.76 1 1
+github.com/cloudflare/circl/dh/x448/curve_amd64.go:14.41,14.60 1 1
+github.com/cloudflare/circl/dh/x448/curve_amd64.go:16.41,16.60 1 1
+github.com/cloudflare/circl/dh/x448/curve_amd64.go:18.49,18.68 1 1
+github.com/cloudflare/circl/dh/x448/key.go:20.44,22.2 1 1
+github.com/cloudflare/circl/dh/x448/key.go:25.52,27.2 1 1
+github.com/cloudflare/circl/dh/x448/key.go:29.35,34.2 4 1

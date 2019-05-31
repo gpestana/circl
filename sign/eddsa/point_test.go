@@ -35,7 +35,7 @@ func TestDevel(t *testing.T) {
 func randomPoint(e *curve, P pointR1) {
 	k := make([]byte, (e.b+7)/8)
 	_, _ = rand.Read(k[:])
-	e.fixedMult(P, k)
+	_ = e.fixedMult(k)
 }
 
 func TestPoint(t *testing.T) {
@@ -133,7 +133,7 @@ func benchmarkPoint(b *testing.B, c *curve) {
 	})
 	b.Run("fixedMult", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			c.fixedMult(P, k)
+			_ = c.fixedMult(k)
 		}
 	})
 	b.Run("doubleMult", func(b *testing.B) {

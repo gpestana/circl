@@ -23,6 +23,8 @@ type pointR3 interface {
 }
 
 type pointR1 interface {
+	ToBytes([]byte)
+	FromBytes([]byte) bool
 	neg()
 	copy() pointR1
 	SetIdentity()
@@ -125,12 +127,12 @@ func (ecc *curve) div2subY(x []uint64, y int64, l int) {
 //   their implementation on GLV–GLS curves" by (Faz-Hernandez et al.)
 //   http://doi.org/10.1007/s13389-014-0085-7
 func (ecc *curve) mLSBRecoding(L []int8, k []byte) {
-	fx_t := ecc.fixedParams.t
-	fx_v := ecc.fixedParams.v
-	fx_w := ecc.fixedParams.w
-	e := (fx_t + fx_w*fx_v - 1) / (fx_w * fx_v)
-	d := e * fx_v
-	l := d * fx_w
+	fxt := ecc.fixedParams.t
+	fxv := ecc.fixedParams.v
+	fxw := ecc.fixedParams.w
+	e := (fxt + fxw*fxv - 1) / (fxw * fxv)
+	d := e * fxv
+	l := d * fxw
 	if len(L) == (l + 1) {
 		m := make([]uint64, len(ecc.order)+1)
 		for i := 0; i < len(ecc.order); i++ {
@@ -160,40 +162,42 @@ func (ecc *curve) mLSBRecoding(L []int8, k []byte) {
 	}
 }
 
-func (ecc *curve) fixedMult(P pointR1, scalar []byte) {
-	fx_t := ecc.fixedParams.t
-	fx_v := ecc.fixedParams.v
-	fx_w := ecc.fixedParams.w
-	var e = (fx_t + fx_w*fx_v - 1) / (fx_w * fx_v)
-	var d = e * fx_v
-	var l = d * fx_w
-	var fx_2w1 = 1 << (uint(fx_w) - 1)
+func (ecc *curve) fixedMult(scalar []byte) pointR1 {
+	fxt := ecc.fixedParams.t
+	fxv := ecc.fixedParams.v
+	fxw := ecc.fixedParams.w
+	var e = (fxt + fxw*fxv - 1) / (fxw * fxv)
+	var d = e * fxv
+	var l = d * fxw
+	var fx2w1 = 1 << (uint(fxw) - 1)
 
 	L := make([]int8, l+1)
 	ecc.mLSBRecoding(L[:], scalar)
-	P.SetIdentity()
+	P := ecc.newPointR1()
 	S := ecc.newPointR3()
+	P.SetIdentity()
 	for ii := e - 1; ii >= 0; ii-- {
 		P.double()
-		for j := 0; j < fx_v; j++ {
-			dig := L[fx_w*d-j*e+ii-e]
-			for i := (fx_w-1)*d - j*e + ii - e; i >= (2*d - j*e + ii - e); i = i - d {
+		for j := 0; j < fxv; j++ {
+			dig := L[fxw*d-j*e+ii-e]
+			for i := (fxw-1)*d - j*e + ii - e; i >= (2*d - j*e + ii - e); i = i - d {
 				dig = 2*dig + L[i]
 			}
 			idx := absolute(int32(dig))
 			sig := L[d-j*e+ii-e]
-			Tabj := &ecc.TabSign[fx_v-j-1]
-			for k := 0; k < fx_2w1; k++ {
+			Tabj := &ecc.TabSign[fxv-j-1]
+			for k := 0; k < fx2w1; k++ {
 				S.cmov(Tabj[k], subtle.ConstantTimeEq(int32(k), int32(idx)))
 			}
 			S.cneg(subtle.ConstantTimeEq(int32(sig), -1))
 			P.mixAdd(S)
 		}
 	}
+	return P
 }
 
 // doubleMult calculates P = mP+nG
-func (ecc *curve) doubleMult(P pointR1, m, n []byte) {
+func (ecc *curve) doubleMult(P pointR1, m, n []byte) pointR1 {
 	nafFix := math.OmegaNAF(conv.BytesLe2BigInt(m), omegaFix)
 	nafVar := math.OmegaNAF(conv.BytesLe2BigInt(n), omegaVar)
 
@@ -202,24 +206,12 @@ func (ecc *curve) doubleMult(P pointR1, m, n []byte) {
 	} else if len(nafFix) < len(nafVar) {
 		nafFix = append(nafFix, make([]int32, len(nafVar)-len(nafFix))...)
 	}
-	// fmt.Printf("nafVar[")
-	// for i := range nafVar {
-	// 	fmt.Printf("%v, ", nafVar[i])
-	// }
-	// fmt.Printf("]\n")
-	// fmt.Printf("nafFix[")
-	// for i := range nafFix {
-	// 	fmt.Printf("%v, ", nafFix[i])
-	// }
-	// fmt.Printf("]\n")
 
 	var TabP [1 << (omegaVar - 2)]pointR2
-	// fmt.Println("doubleMult")
 	P.oddMultiples(TabP[:])
-	// P is now used as an output value
+	// P is reused as an output value
 	P.SetIdentity()
 	for i := len(nafFix) - 1; i >= 0; i-- {
-		// fmt.Printf("i:%v\n", i)
 		P.double()
 		// Generator point
 		if nafFix[i] != 0 {
@@ -240,8 +232,11 @@ func (ecc *curve) doubleMult(P pointR1, m, n []byte) {
 			P.add(Q)
 		}
 	}
+	return P
 }
-
+func (ecc *curve) verifyS([]byte) bool {
+	return true
+}
 func (ecc *curve) reduceModOrder(k []byte) {
 	bigK := conv.BytesLe2BigInt(k)
 	orderBig := conv.Uint64Le2BigInt(ecc.order[:])

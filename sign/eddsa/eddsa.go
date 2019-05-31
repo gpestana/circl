@@ -50,89 +50,87 @@ type Ed25519 struct{}
 // Ed448 is used to instantiate an object able to perform Ed448 operations.
 type Ed448 struct{}
 
+func (e *Ed25519) clamp(k []byte) {
+	k[0] &= -(uint8(1) << edwards25519.lgCofactor)
+	k[SizeKey25519-1] = (k[SizeKey25519-1] & 127) | 64
+}
+
 // KeyGen generates a public key from a secret key.
 func (e *Ed25519) KeyGen(public *Pk25519, private *Sk25519) {
-	H := sha512.New()
-	_, _ = H.Write(private[:])
-	ah := H.Sum([]byte{})
-	ah[0] &= -(uint8(1) << edwards25519.lgCofactor)
-	ah[31] = (ah[31] & 127) | 64
-
-	edwards25519.reduceModOrder(ah[:32])
-
-	var P point255R1
-	edwards25519.fixedMult(&P, ah[:32])
+	k := sha512.Sum512(private[:])
+	e.clamp(k[:])
+	edwards25519.reduceModOrder(k[:SizeKey25519])
+	P := edwards25519.fixedMult(k[:SizeKey25519])
 	P.ToBytes(public[:])
 }
 
 // Sign creates the signature of a message using both the private and public
 // keys of the signer.
 func (e *Ed25519) Sign(msg []byte, public *Pk25519, private *Sk25519) *Sig25519 {
-	H := sha512.New()
-	_, _ = H.Write(private[:])
-	ah := H.Sum([]byte{})
-	ah[0] &= -(uint8(1) << edwards25519.lgCofactor)
-	ah[31] = (ah[31] & 127) | 64
+	k := sha512.Sum512(private[:])
+	e.clamp(k[:])
 	// fmt.Printf("")
 	// fmt.Printf("ah: %x\n", ah)
-
-	H.Reset()
-	_, _ = H.Write(ah[32:])
+	H := sha512.New()
+	var r [sha512.Size]byte
+	_, _ = H.Write(k[32:])
 	_, _ = H.Write(msg)
-	r := H.Sum([]byte{})
+	H.Sum(r[:0])
 	// fmt.Printf("r: %x\n", r)
 	edwards25519.reduceModOrder(r[:])
 	// fmt.Printf("r: %x\n", r[:32])
-
-	var P point255R1
-	edwards25519.fixedMult(&P, r[:32])
-	var signature Sig25519
-	P.ToBytes(signature[:32])
+	P := edwards25519.fixedMult(r[:SizeKey25519])
+	signature := &Sig25519{}
+	P.ToBytes(signature[:SizeKey25519])
 	// fmt.Printf("s0: %x\n", signature[:32])
-
+	var hRAM [sha512.Size]byte
 	H.Reset()
 	_, _ = H.Write(signature[:32])
 	_, _ = H.Write(public[:])
 	_, _ = H.Write(msg)
-	hRAM := H.Sum([]byte{})
+	H.Sum(hRAM[:0])
 	// fmt.Printf("hRAM: %x\n", hRAM[:])
 	edwards25519.reduceModOrder(hRAM[:])
 	// fmt.Printf("hRAM: %x\n", hRAM[:32])
-	edwards25519.calculateS(signature[32:], r[:32], hRAM[:32], ah[:32])
 	// fmt.Printf("s1: %x\n", signature[32:])
-	return &signature
+	edwards25519.calculateS(signature[32:], r[:32], hRAM[:32], k[:32])
+	return signature
 }
 
 // Verify returns false if the signature is invalid or when the public key can
 // not be decoded; otherwise, returns true.
 func (e *Ed25519) Verify(msg []byte, public *Pk25519, sig *Sig25519) bool {
-	var P point255R1
+	P := edwards25519.newPointR1()
 	// fmt.Printf("pk: %x\n", public)
 	if ok := P.FromBytes(public[:]); !ok {
 		return false
 	}
+	P.neg()
 	// fmt.Printf("A: %v\n", &A)
 
+	hRAM := [sha512.Size]byte{}
 	H := sha512.New()
 	_, _ = H.Write(sig[:32])
 	_, _ = H.Write(public[:])
 	_, _ = H.Write(msg)
-	hRAM := H.Sum([]byte{})
+	H.Sum(hRAM[:0])
 	// fmt.Printf("hRAM: %x\n", hRAM[:])
 	edwards25519.reduceModOrder(hRAM[:])
 	// fmt.Printf("s: %v\n", conv.BytesLe2Hex(sig[32:]))
 	// fmt.Printf("h: %v\n", conv.BytesLe2Hex(hRAM[:32]))
-	P.neg()
 	// fmt.Printf("P: %v\n", &P)
-	edwards25519.doubleMult(&P, sig[32:], hRAM[:32])
+	if ok := edwards25519.verifyS(sig[32:]); !ok {
+		return false
+	}
+
+	Q := edwards25519.doubleMult(P, sig[32:], hRAM[:32])
 	// fmt.Printf("Q: %v\n", &P)
-	P.toAffine()
 	// fmt.Printf("aQ: %v\n", &P)
-	var encP [32]byte
-	P.ToBytes(encP[:])
+	var enc [32]byte
+	Q.ToBytes(enc[:])
 	// fmt.Printf("encP: %x\n", encP)
 	// fmt.Printf("sig0: %x\n", sig[:32])
-	return bytes.Equal(encP[:], sig[:32])
+	return bytes.Equal(enc[:], sig[:32])
 }
 
 // KeyGen generates a public key from a secret key.
@@ -147,7 +145,7 @@ func (e *Ed448) KeyGen(public *Pk448, private *Sk448) {
 	edwards448.reduceModOrder(dig[:57])
 
 	var P point448R1
-	edwards448.fixedMult(&P, dig[:57])
+	edwards448.fixedMult(dig[:57])
 	P.ToBytes(public[:])
 }
 
